@@ -1,0 +1,57 @@
+# =========================
+# Entorno virtual local
+# =========================
+bin/
+lib/
+include/
+pyvenv.cfg
+.venv/
+venv/
+env/
+
+# =========================
+# Variables sensibles
+# =========================
+.env
+.env.local
+.env.development
+.env.production
+
+# =========================
+# Python
+# =========================
+__pycache__/
+*.py[cod]
+*$py.class
+*.pyo
+*.pyd
+
+# =========================
+# Resultados y logs
+# =========================
+resultado_pruebas_backend.json
+*.log
+
+# =========================
+# Sistema operativo
+# =========================
+.DS_Store
+Thumbs.db
+
+# =========================
+# Editores
+# =========================
+.vscode/
+.idea/
+
+# =========================
+# Jupyter / Colab
+# =========================
+.ipynb_checkpoints/
+
+# =========================
+# Respaldos locales
+# =========================
+backups/
+*_respaldo.py
+history_*
