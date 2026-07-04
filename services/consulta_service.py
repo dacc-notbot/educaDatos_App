@@ -613,14 +613,14 @@ def detectar_sector_establecimiento(pregunta: str) -> Optional[str]:
         return "OFICIAL"
 
     return None
+
+
 def es_pregunta_conteo_establecimientos(pregunta: str) -> bool:
     """
     Detecta preguntas donde el ciudadano quiere un número,
     no una lista detallada.
     """
-    p = normalizar_texto(pregunta)
-
-    return contiene_alguna(p, [
+    return contiene_alguna(pregunta, [
         "cuantos colegios",
         "cuántos colegios",
         "cuantos establecimientos",
@@ -639,9 +639,7 @@ def es_pregunta_lista_establecimientos(pregunta: str) -> bool:
     Detecta preguntas donde el ciudadano sí pide ver nombres
     o un listado de colegios.
     """
-    p = normalizar_texto(pregunta)
-
-    return contiene_alguna(p, [
+    return contiene_alguna(pregunta, [
         "lista de colegios",
         "listado de colegios",
         "muestrame la lista",
@@ -682,8 +680,8 @@ def detectar_modo_respuesta_establecimientos(pregunta: str) -> str:
     if es_pregunta_lista_establecimientos(pregunta):
         return "lista"
 
-    # Por defecto dejamos conteo para no abrumar al ciudadano.
     return "conteo"
+
 
 def es_saludo_o_mensaje_general(pregunta: str) -> bool:
     p = normalizar_texto(pregunta)
@@ -1032,10 +1030,6 @@ def resolver_consulta_ciudadana(
     if clasificacion.get("tipo_consulta") == "analitica_clustering":
         accion = clasificacion.get("accion")
 
-        # Caso especial:
-        # El usuario pregunta por municipios similares dentro de un departamento,
-        # pero no da un municipio base. En ese caso se listan grupos estadísticos
-        # del departamento.
         if accion == "municipios_similares" and departamento and not municipio:
             resultado_analitico = consultar_clusters_municipios_service(
                 departamento=departamento,
@@ -1077,8 +1071,8 @@ def resolver_consulta_ciudadana(
                     "resultados_muestra": resultados,
                     "limitaciones": resultado_analitico.get("advertencias", []),
                     "sugerencias_de_siguiente_pregunta": [
-                        f"¿Qué grupo describe mejor a Villavicencio?",
-                        f"¿Qué recomendaciones educativas tiene Villavicencio?",
+                        "¿Qué grupo describe mejor a Villavicencio?",
+                        "¿Qué recomendaciones educativas tiene Villavicencio?",
                         f"¿Qué relación hay entre bachilleres, educación superior e ICETEX en {departamento}?",
                     ],
                 },
@@ -1298,7 +1292,10 @@ def resolver_consulta_ciudadana(
                             ),
                             "variables": resultado_analitico.get("variables_mas_relevantes", {}).get(
                                 "variables_legibles",
-                                resultado_analitico.get("variables_mas_relevantes", {}).get("variables_usadas", [])
+                                resultado_analitico.get("variables_mas_relevantes", {}).get(
+                                    "variables_usadas",
+                                    []
+                                )
                             ),
                         }
                     ],
@@ -1319,23 +1316,22 @@ def resolver_consulta_ciudadana(
     # Establecimientos educativos
     # --------------------------------------------------------
     if clasificacion.get("intencion") == "buscar_establecimientos_educativos":
-
         if not departamento and not municipio:
             return respuesta_falta_territorio(
-            pregunta=pregunta,
-            intencion=clasificacion["intencion"],
-            explicacion=clasificacion["explicacion"],
-            dataset_usado=clasificacion["dataset_key"],
-            respuesta_corta=(
-                "Puedo ayudarte a consultar colegios o establecimientos educativos, "
-                "pero necesito identificar al menos un municipio o departamento."
-            ),
-            sugerencias=[
-                "¿Cuántos colegios hay en Soacha?",
-                "¿Cuántos colegios oficiales y privados hay en Villavicencio?",
-                "Muéstrame la lista de colegios oficiales de Villavicencio",
-            ],
-        )
+                pregunta=pregunta,
+                intencion=clasificacion["intencion"],
+                explicacion=clasificacion["explicacion"],
+                dataset_usado=clasificacion["dataset_key"],
+                respuesta_corta=(
+                    "Puedo ayudarte a consultar colegios o establecimientos educativos, "
+                    "pero necesito identificar al menos un municipio o departamento."
+                ),
+                sugerencias=[
+                    "¿Cuántos colegios hay en Soacha?",
+                    "¿Cuántos colegios oficiales y privados hay en Villavicencio?",
+                    "Muéstrame la lista de colegios oficiales de Villavicencio",
+                ],
+            )
 
         sector_detectado = detectar_sector_establecimiento(pregunta)
         modo_respuesta = detectar_modo_respuesta_establecimientos(pregunta)
@@ -1348,45 +1344,45 @@ def resolver_consulta_ciudadana(
             modo_respuesta=modo_respuesta,
         )
 
-    datos_establecimientos = resultado_establecimientos.get("datos", {})
+        datos_establecimientos = resultado_establecimientos.get("datos", {})
 
-    if modo_respuesta == "lista":
-        resultados_muestra = datos_establecimientos.get("lista_establecimientos", [])
-    else:
-        resultados_muestra = []
+        if modo_respuesta == "lista":
+            resultados_muestra = datos_establecimientos.get("lista_establecimientos", [])
+        else:
+            resultados_muestra = []
 
-    return {
-        "pregunta_recibida": pregunta,
-        "intencion_detectada": clasificacion["intencion"],
-        "modo_respuesta": modo_respuesta,
-        "explicacion_enrutamiento": clasificacion["explicacion"],
-        "dataset_usado": clasificacion["dataset_key"],
-        "territorio_detectado": {
-            "departamento": departamento,
-            "municipio": municipio,
-            "sector": sector_detectado,
-        },
-        "texto_busqueda_usado": None,
-        "total_resultados": datos_establecimientos.get("total_establecimientos_unicos"),
-        "respuesta_ciudadana": {
-            "respuesta_corta": resultado_establecimientos["respuesta_corta"],
-            "hallazgos_principales": resultado_establecimientos["hallazgos_principales"],
-            "fuente_usada": resultado_establecimientos["fuentes_usadas"][0],
-            "resultados_muestra": resultados_muestra,
-            "limitaciones": resultado_establecimientos["limitaciones"],
-            "sugerencias_de_siguiente_pregunta": resultado_establecimientos[
-                "sugerencias_de_siguiente_pregunta"
-            ],
+        return {
+            "pregunta_recibida": pregunta,
+            "intencion_detectada": clasificacion["intencion"],
             "modo_respuesta": modo_respuesta,
-        },
-        "resultados": resultado_establecimientos,
-        "nota_para_gpt": (
-            "Si modo_respuesta es conteo, presenta solo el resumen numérico y pregunta "
-            "si desea ver la lista de colegios oficiales o no oficiales. "
-            "Si modo_respuesta es lista, presenta la lista filtrada por la vigencia más reciente."
-        ),
-    }
-    
+            "explicacion_enrutamiento": clasificacion["explicacion"],
+            "dataset_usado": clasificacion["dataset_key"],
+            "territorio_detectado": {
+                "departamento": departamento,
+                "municipio": municipio,
+                "sector": sector_detectado,
+            },
+            "texto_busqueda_usado": None,
+            "total_resultados": datos_establecimientos.get("total_establecimientos_unicos"),
+            "respuesta_ciudadana": {
+                "respuesta_corta": resultado_establecimientos["respuesta_corta"],
+                "hallazgos_principales": resultado_establecimientos["hallazgos_principales"],
+                "fuente_usada": resultado_establecimientos["fuentes_usadas"][0],
+                "resultados_muestra": resultados_muestra,
+                "limitaciones": resultado_establecimientos["limitaciones"],
+                "sugerencias_de_siguiente_pregunta": resultado_establecimientos[
+                    "sugerencias_de_siguiente_pregunta"
+                ],
+                "modo_respuesta": modo_respuesta,
+            },
+            "resultados": resultado_establecimientos,
+            "nota_para_gpt": (
+                "Si modo_respuesta es conteo, presenta solo el resumen numérico y pregunta "
+                "si desea ver la lista de colegios oficiales o no oficiales. "
+                "Si modo_respuesta es lista, presenta la lista filtrada por la vigencia más reciente."
+            ),
+        }
+
     # --------------------------------------------------------
     # Programas de educación superior
     # --------------------------------------------------------
@@ -1400,8 +1396,8 @@ def resolver_consulta_ciudadana(
         if es_texto_generico_educativo(texto_busqueda):
             texto_busqueda = None
 
-            if not departamento and not municipio and not texto_busqueda:
-             return respuesta_falta_territorio(
+        if not departamento and not municipio and not texto_busqueda:
+            return respuesta_falta_territorio(
                 pregunta=pregunta,
                 intencion=clasificacion["intencion"],
                 explicacion=clasificacion["explicacion"],
@@ -1441,7 +1437,9 @@ def resolver_consulta_ciudadana(
                 "fuente_usada": resultado_programas["fuentes_usadas"][0],
                 "resultados_muestra": resultado_programas["datos"].get("muestra_programas", []),
                 "limitaciones": resultado_programas["limitaciones"],
-                "sugerencias_de_siguiente_pregunta": resultado_programas["sugerencias_de_siguiente_pregunta"],
+                "sugerencias_de_siguiente_pregunta": resultado_programas[
+                    "sugerencias_de_siguiente_pregunta"
+                ],
             },
             "resultados": resultado_programas,
             "nota_para_gpt": (
@@ -1494,7 +1492,9 @@ def resolver_consulta_ciudadana(
                 "fuente_usada": resultado_bachilleres["fuentes_usadas"][0],
                 "resultados_muestra": resultado_bachilleres["datos"].get("muestra_bachilleres", []),
                 "limitaciones": resultado_bachilleres["limitaciones"],
-                "sugerencias_de_siguiente_pregunta": resultado_bachilleres["sugerencias_de_siguiente_pregunta"],
+                "sugerencias_de_siguiente_pregunta": resultado_bachilleres[
+                    "sugerencias_de_siguiente_pregunta"
+                ],
             },
             "resultados": resultado_bachilleres,
             "nota_para_gpt": (
@@ -1564,7 +1564,9 @@ def resolver_consulta_ciudadana(
                 "fuente_usada": resultado_icetex["fuentes_usadas"][0],
                 "resultados_muestra": resultado_icetex["datos"].get("muestra_icetex", []),
                 "limitaciones": resultado_icetex["limitaciones"],
-                "sugerencias_de_siguiente_pregunta": resultado_icetex["sugerencias_de_siguiente_pregunta"],
+                "sugerencias_de_siguiente_pregunta": resultado_icetex[
+                    "sugerencias_de_siguiente_pregunta"
+                ],
             },
             "resultados": resultado_icetex,
             "nota_para_gpt": (
