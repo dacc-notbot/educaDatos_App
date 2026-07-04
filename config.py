@@ -16,7 +16,7 @@ PROJECT_DESCRIPTION = (
 # URL pública de la API.
 # Para pruebas locales puedes usar: http://127.0.0.1:8000
 # Para conectar con GPT o la app pública usa la URL pública de ngrok.
-PUBLIC_BASE_URL = "https://mustard-mom-default.ngrok-free.dev/"
+PUBLIC_BASE_URL = "https://educadatos-889316352442.southamerica-west1.run.app"
 
 
 # ============================================================
