@@ -7,6 +7,7 @@ permissions:
   pull-requests: write
 jobs:
   web:
+    if: github.repository == 'dacc-notbot/educaDatos_App'
     runs-on: ubuntu-latest
     env:
       VITE_API_BASE_URL: ${{ vars.VITE_API_BASE_URL }}
