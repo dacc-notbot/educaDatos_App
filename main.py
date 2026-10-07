@@ -7,8 +7,9 @@ from services.router_ciudadano import router as router_ciudadano
 from services.establecimientos_service import consultar_establecimientos_educativos_service
 from fastapi.responses import JSONResponse
 import logging
+import asyncio
 
-from config import DATASETS, DATASET_BASE, PUBLIC_BASE_URL, APP_VERSION, CORS_ORIGINS
+from config import DATASETS, DATASET_BASE, PUBLIC_BASE_URL, APP_VERSION, CORS_ORIGINS, MAX_CONCURRENT_ANALYSES
 
 from services.socrata_service import (
     consultar_dataset,
@@ -46,12 +47,39 @@ app = FastAPI(
     version=APP_VERSION,
 )
 
+cupo_analisis = asyncio.BoundedSemaphore(MAX_CONCURRENT_ANALYSES)
+
+
+@app.middleware("http")
+async def limitar_analisis_simultaneos(request, call_next):
+    path = request.url.path
+    analitica = path.startswith((
+        "/chat", "/consulta", "/diagnostico", "/metadata", "/cluster", "/similar",
+        "/recomendaciones", "/colegios", "/territorios", "/ciudadano", "/cruce",
+    )) or (path.startswith("/datasets/") and path.count("/") >= 3)
+    if not analitica or request.method == "OPTIONS":
+        return await call_next(request)
+    if cupo_analisis.locked():
+        return JSONResponse(
+            status_code=503,
+            content={"detail": "La API está ocupada. Vuelve a intentarlo en unos segundos."},
+            headers={"Retry-After": "3"},
+        )
+    await cupo_analisis.acquire()
+    try:
+        return await call_next(request)
+    finally:
+        cupo_analisis.release()
+
+
+# CORS envuelve también las respuestas de sobrecarga del middleware anterior.
 app.add_middleware(
     CORSMiddleware,
     allow_origins=CORS_ORIGINS,
     allow_credentials=False,
     allow_methods=["*"],
     allow_headers=["*"],
+    expose_headers=["Retry-After"],
 )
 
 

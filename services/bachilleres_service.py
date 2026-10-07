@@ -75,7 +75,7 @@ def registro_coincide_territorio(
     no siempre por municipio exacto. Por eso se revisa municipio, secretaría
     y texto completo como respaldo.
     """
-    texto_completo = texto_completo_registro(registro)
+    texto_completo = None
 
     if departamento:
         departamento_norm = normalizar_texto(departamento)
@@ -84,15 +84,16 @@ def registro_coincide_territorio(
             valor_departamento = normalizar_texto(registro.get(col_departamento))
             if valor_departamento != departamento_norm:
                 return False
-        elif departamento_norm not in texto_completo:
-            return False
+        else:
+            texto_completo = texto_completo_registro(registro)
+            if departamento_norm not in texto_completo:
+                return False
 
     if municipio:
         municipio_norm = normalizar_texto(municipio)
 
         coincide_municipio = False
         coincide_secretaria = False
-        coincide_texto = municipio_norm in texto_completo
 
         if col_municipio:
             coincide_municipio = (
@@ -104,8 +105,11 @@ def registro_coincide_territorio(
                 municipio_norm in normalizar_texto(registro.get(col_secretaria))
             )
 
-        if not coincide_municipio and not coincide_secretaria and not coincide_texto:
-            return False
+        if not coincide_municipio and not coincide_secretaria:
+            if texto_completo is None:
+                texto_completo = texto_completo_registro(registro)
+            if municipio_norm not in texto_completo:
+                return False
 
     return True
 

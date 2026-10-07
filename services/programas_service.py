@@ -109,7 +109,7 @@ def registro_coincide_territorio(
       se valida si el municipio pertenece al departamento consultado.
     - Si no hay columnas claras, se usa texto completo como respaldo.
     """
-    texto_completo = texto_completo_registro(registro)
+    texto_completo = None
 
     if municipio:
         municipio_norm = normalizar_texto(municipio)
@@ -118,8 +118,11 @@ def registro_coincide_territorio(
             valor_municipio = normalizar_texto(registro.get(col_municipio))
             if valor_municipio != municipio_norm:
                 return False
-        elif municipio_norm not in texto_completo:
-            return False
+        else:
+            if texto_completo is None:
+                texto_completo = texto_completo_registro(registro)
+            if municipio_norm not in texto_completo:
+                return False
 
     if departamento:
         departamento_norm = normalizar_texto(departamento)
@@ -134,8 +137,11 @@ def registro_coincide_territorio(
             if valor_municipio not in municipios_departamento:
                 return False
 
-        elif departamento_norm not in texto_completo:
-            return False
+        else:
+            if texto_completo is None:
+                texto_completo = texto_completo_registro(registro)
+            if departamento_norm not in texto_completo:
+                return False
 
     return True
 

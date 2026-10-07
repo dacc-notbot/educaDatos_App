@@ -1,6 +1,7 @@
 import re
 import math
 import unicodedata
+from functools import lru_cache
 from typing import Any, List, Optional
 
 
@@ -15,7 +16,19 @@ def normalizar_texto(valor: Any) -> str:
     if valor is None:
         return ""
 
-    texto = str(valor).strip().lower()
+    texto = str(valor)
+    # Reutilizar etiquetas cortas frecuentes (departamentos, municipios, etc.).
+    # Las filas completas no se retienen para mantener acotada la memoria.
+    return _normalizar_corto(texto) if len(texto) <= 256 else _normalizar(texto)
+
+
+@lru_cache(maxsize=8192)
+def _normalizar_corto(texto: str) -> str:
+    return _normalizar(texto)
+
+
+def _normalizar(texto: str) -> str:
+    texto = texto.strip().lower()
 
     texto = "".join(
         c for c in unicodedata.normalize("NFKD", texto)

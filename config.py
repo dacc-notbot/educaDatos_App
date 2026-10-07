@@ -33,6 +33,7 @@ CORS_ORIGINS = [origen.strip() for origen in os.getenv("CORS_ORIGINS", "*").spli
 REQUEST_TIMEOUT = entero_entorno("REQUEST_TIMEOUT", 60)
 CACHE_TTL_SECONDS = entero_entorno("CACHE_TTL_SECONDS", 3600, minimo=0)
 CACHE_MAX_ENTRIES = entero_entorno("CACHE_MAX_ENTRIES", 64)
+MAX_CONCURRENT_ANALYSES = entero_entorno("MAX_CONCURRENT_ANALYSES", 2)
 CACHE_DIR = Path(os.getenv("EDUCADATOS_CACHE_DIR", "/tmp/educadatos-cache"))
 
 

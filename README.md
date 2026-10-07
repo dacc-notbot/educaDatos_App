@@ -41,6 +41,9 @@ referencia y no guardes secretos en Git.
 - `REQUEST_TIMEOUT`: tiempo de espera de la fuente en segundos.
 - `CACHE_TTL_SECONDS`: vigencia de datos descargados; `0` desactiva la caché.
 - `CACHE_MAX_ENTRIES`: máximo de consultas retenidas en la caché.
+- `MAX_CONCURRENT_ANALYSES`: máximo de análisis simultáneos por proceso (2 por
+  defecto). Bajo carga, la API devuelve 503 y `Retry-After`; salud y documentación
+  siguen disponibles. La web debe mostrar la espera y permitir reintentar.
 - `EDUCADATOS_CACHE_DIR`: ubicación de la caché; por defecto `/tmp/educadatos-cache`.
 - Los límites de consulta también se pueden configurar. Las consultas analíticas
   mantienen mínimos amplios para evitar presentar una muestra parcial como total.
@@ -102,3 +105,6 @@ Las copias locales se guardan fuera de los repositorios, en `/workspace/backups`
 Conserva también una copia externa antes de eliminar el entorno cloud. Las órdenes
 de sincronización no hacen commits ni pushes: revisa y publica las actualizaciones
 en GitHub cuando corresponda. Véase [la consolidación](docs/CONSOLIDACION.md).
+
+Consulta también [las mediciones de rendimiento](docs/RENDIMIENTO.md) y
+[la guía para crear la interfaz pública](docs/INTERFAZ_WEB.md).

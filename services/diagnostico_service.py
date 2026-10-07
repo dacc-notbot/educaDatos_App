@@ -673,7 +673,8 @@ def diagnostico_territorial_educativo_service(
         analizar_transito_educativo_service,
         departamento=departamento,
         municipio=municipio,
-        limit=limit_transito
+        limit=limit_transito,
+        resultado_programas=programas,
     )
 
     resumen = construir_resumen_diagnostico(

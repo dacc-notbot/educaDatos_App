@@ -82,7 +82,7 @@ def registro_coincide_territorio(
     col_departamento: Optional[str],
     col_municipio: Optional[str],
 ) -> bool:
-    texto_completo = texto_completo_registro(registro)
+    texto_completo = None
 
     if departamento:
         departamento_norm = normalizar_texto(departamento)
@@ -91,8 +91,11 @@ def registro_coincide_territorio(
             valor_departamento = normalizar_texto(registro.get(col_departamento))
             if valor_departamento != departamento_norm:
                 return False
-        elif departamento_norm not in texto_completo:
-            return False
+        else:
+            if texto_completo is None:
+                texto_completo = texto_completo_registro(registro)
+            if departamento_norm not in texto_completo:
+                return False
 
     if municipio:
         municipio_norm = normalizar_texto(municipio)
@@ -101,8 +104,11 @@ def registro_coincide_territorio(
             valor_municipio = normalizar_texto(registro.get(col_municipio))
             if valor_municipio != municipio_norm:
                 return False
-        elif municipio_norm not in texto_completo:
-            return False
+        else:
+            if texto_completo is None:
+                texto_completo = texto_completo_registro(registro)
+            if municipio_norm not in texto_completo:
+                return False
 
     return True
 

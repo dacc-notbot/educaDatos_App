@@ -416,7 +416,8 @@ def construir_resumen_ejecutivo(
 def analizar_transito_educativo_service(
     departamento: Optional[str] = None,
     municipio: Optional[str] = None,
-    limit: int = DEFAULT_ANALYTIC_LIMIT
+    limit: int = DEFAULT_ANALYTIC_LIMIT,
+    resultado_programas: Optional[Dict[str, Any]] = None,
 ) -> Dict[str, Any]:
     """
     Cruce exploratorio entre:
@@ -425,7 +426,8 @@ def analizar_transito_educativo_service(
     - créditos ICETEX otorgados,
     - créditos ICETEX renovados.
 
-    Mantiene la misma firma usada por consulta_service.py.
+    El diagnóstico puede reutilizar la consulta de programas del mismo territorio
+    y límite. Las llamadas existentes siguen consultando cuando no se proporciona.
     """
 
     if not departamento and not municipio:
@@ -449,7 +451,7 @@ def analizar_transito_educativo_service(
         limit=limit_final
     )
 
-    programas = ejecutar_seguro(
+    programas = resultado_programas if resultado_programas is not None else ejecutar_seguro(
         "programas_superior",
         consultar_programas_superior_service,
         departamento=departamento,
