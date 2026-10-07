@@ -1,0 +1,494 @@
+import {
+  useEffect,
+  useRef,
+  useState,
+  type ReactNode,
+  type FormEvent,
+} from "react";
+import {
+  consultar,
+  enlacePublico,
+  ErrorConsulta,
+  mostrarValor,
+  type Registro,
+  type Respuesta,
+} from "./api";
+
+const ejemplos = [
+  {
+    tema: "Colegios",
+    pregunta: "¿Cuántos colegios oficiales y privados hay en Soacha?",
+    icono: "escuela",
+  },
+  {
+    tema: "Educación superior",
+    pregunta: "¿Qué títulos de educación superior se reportan en Meta?",
+    icono: "libro",
+  },
+  {
+    tema: "ICETEX",
+    pregunta: "¿Qué créditos ICETEX hay en Cundinamarca?",
+    icono: "credito",
+  },
+];
+
+function Icono({
+  nombre = "libro",
+  className = "",
+}: {
+  nombre?: string;
+  className?: string;
+}) {
+  const formas: Record<string, ReactNode> = {
+    libro: (
+      <>
+        <path d="M3 5c4-1 6 0 9 2 3-2 5-3 9-2v14c-4-1-6 0-9 2-3-2-5-3-9-2V5Z" />
+        <path d="M12 7v14" />
+      </>
+    ),
+    escuela: (
+      <>
+        <path d="m3 10 9-6 9 6M5 10v10h14V10M9 20v-6h6v6M12 4V2" />
+        <path d="M8 10h.01M16 10h.01" />
+      </>
+    ),
+    credito: (
+      <>
+        <rect x="3" y="5" width="18" height="14" rx="3" />
+        <path d="M3 10h18M7 15h4" />
+      </>
+    ),
+    flecha: (
+      <>
+        <path d="M5 12h14m-6-6 6 6-6 6" />
+      </>
+    ),
+    enlace: (
+      <>
+        <path d="M14 3h7v7M21 3 10 14M10 3H5a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-5" />
+      </>
+    ),
+  };
+  return (
+    <svg
+      className={className}
+      aria-hidden="true"
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="1.6"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+    >
+      {formas[nombre] || formas.libro}
+    </svg>
+  );
+}
+
+function Resultados({ resultado }: { resultado: Respuesta }) {
+  const detalle = resultado.datos.detalle_consulta as Registro | undefined;
+  const indicadores: [string, string][] = [
+    ["total_establecimientos_unicos", "Establecimientos"],
+    ["total_instituciones_unicas", "Instituciones"],
+    ["total_programas_unicos", "Programas únicos"],
+    ["total_bachilleres", "Bachilleres"],
+    ["total_creditos", "Créditos"],
+    ["vigencia_mas_reciente", "Año de los datos"],
+  ];
+  const visibles = indicadores.filter(
+    ([clave]) => detalle && Object.hasOwn(detalle, clave),
+  );
+  const muestra = Array.isArray(resultado.datos.resultados_muestra)
+    ? resultado.datos.resultados_muestra
+        .filter(
+          (r): r is Registro =>
+            !!r && typeof r === "object" && !Array.isArray(r),
+        )
+        .slice(0, 10)
+    : [];
+  const columnas = [
+    ...new Set(
+      muestra.flatMap((fila) =>
+        Object.keys(fila).filter(
+          (k) =>
+            fila[k] == null ||
+            ["string", "number", "boolean"].includes(typeof fila[k]),
+        ),
+      ),
+    ),
+  ].slice(0, 6);
+  const sugerencias = Array.isArray(
+    resultado.datos.sugerencias_de_siguiente_pregunta,
+  )
+    ? resultado.datos.sugerencias_de_siguiente_pregunta.filter(
+        (v): v is string => typeof v === "string",
+      )
+    : [];
+  return (
+    <section className="resultado card" aria-labelledby="resultado-titulo">
+      <div className="result-heading">
+        <span className="eyebrow">TU CONSULTA</span>
+        <span className="result-badge">Datos abiertos</span>
+      </div>
+      <h2 id="resultado-titulo">Esto encontramos</h2>
+      <p className="pregunta-enviada">{resultado.pregunta}</p>
+      <p className="respuesta-texto">{resultado.respuesta}</p>
+      {visibles.length > 0 && (
+        <dl className="indicadores">
+          {visibles.map(([clave, label]) => (
+            <div key={clave}>
+              <dt>{label}</dt>
+              <dd>{mostrarValor(detalle![clave])}</dd>
+            </div>
+          ))}
+        </dl>
+      )}
+      {resultado.advertencias.length > 0 && (
+        <aside
+          className="advertencias"
+          aria-label="Advertencias sobre los datos"
+        >
+          <h3>Para interpretar estos datos</h3>
+          <ul>
+            {resultado.advertencias.map((texto, i) => (
+              <li key={i}>{texto}</li>
+            ))}
+          </ul>
+        </aside>
+      )}
+      {muestra.length > 0 && columnas.length > 0 && (
+        <details className="muestra">
+          <summary>Ver muestra de registros ({muestra.length})</summary>
+          <p>
+            Esta muestra no representa necesariamente el total de registros de
+            la fuente.
+          </p>
+          <div
+            className="tabla-scroll"
+            tabIndex={0}
+            aria-label="Tabla de registros, desplazable horizontalmente"
+          >
+            <table>
+              <thead>
+                <tr>
+                  {columnas.map((col) => (
+                    <th key={col} scope="col">
+                      {col.replace(/_/g, " ")}
+                    </th>
+                  ))}
+                </tr>
+              </thead>
+              <tbody>
+                {muestra.map((fila, i) => (
+                  <tr key={i}>
+                    {columnas.map((col) => (
+                      <td key={col}>{mostrarValor(fila[col])}</td>
+                    ))}
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        </details>
+      )}
+      {resultado.fuentes.length > 0 && (
+        <div className="fuentes">
+          <h3>Fuentes de esta respuesta</h3>
+          <ul>
+            {resultado.fuentes.map((fuente, i) => {
+              const url = enlacePublico(fuente);
+              return (
+                <li key={i}>
+                  {url ? (
+                    <a href={url} target="_blank" rel="noopener noreferrer">
+                      Consultar fuente oficial <Icono nombre="enlace" />
+                    </a>
+                  ) : (
+                    <span>{fuente}</span>
+                  )}
+                </li>
+              );
+            })}
+          </ul>
+        </div>
+      )}
+      {sugerencias.length > 0 && (
+        <div className="sugerencias">
+          <h3>Puedes seguir explorando</h3>
+          <ul>
+            {sugerencias.slice(0, 3).map((s, i) => (
+              <li key={i}>{s}</li>
+            ))}
+          </ul>
+        </div>
+      )}
+    </section>
+  );
+}
+
+export default function App() {
+  const [pregunta, setPregunta] = useState("");
+  const [resultado, setResultado] = useState<Respuesta | null>(null);
+  const [pendiente, setPendiente] = useState(false);
+  const [error, setError] = useState("");
+  const [esperarHasta, setEsperarHasta] = useState(0);
+  const [ahora, setAhora] = useState(Date.now());
+  const campo = useRef<HTMLTextAreaElement>(null);
+  const solicitud = useRef<AbortController | null>(null);
+  const activo = useRef(true);
+  const espera = Math.max(0, Math.ceil((esperarHasta - ahora) / 1000));
+  useEffect(() => {
+    activo.current = true;
+    return () => {
+      activo.current = false;
+      solicitud.current?.abort();
+    };
+  }, []);
+  useEffect(() => {
+    if (!esperarHasta) return;
+    const timer = window.setInterval(() => {
+      const tiempo = Date.now();
+      setAhora(tiempo);
+      if (tiempo >= esperarHasta) {
+        setEsperarHasta(0);
+        window.clearInterval(timer);
+      }
+    }, 250);
+    return () => window.clearInterval(timer);
+  }, [esperarHasta]);
+
+  async function enviar(event: FormEvent) {
+    event.preventDefault();
+    if (pendiente || espera > 0 || !pregunta.trim()) return;
+    if (pregunta.trim().length > 2000) {
+      setError("Tu pregunta debe tener hasta 2000 caracteres.");
+      return;
+    }
+    setPendiente(true);
+    setError("");
+    setResultado(null);
+    const controller = new AbortController();
+    solicitud.current = controller;
+    const timer = window.setTimeout(() => controller.abort(), 180000);
+    try {
+      const respuesta = await consultar(pregunta.trim(), controller.signal);
+      if (activo.current) setResultado(respuesta);
+    } catch (e) {
+      if (activo.current) {
+        setError(
+          e instanceof Error ? e.message : "No pudimos completar la consulta.",
+        );
+        if (e instanceof ErrorConsulta) {
+          setEsperarHasta(e.esperarHasta);
+          setAhora(Date.now());
+        }
+      }
+    } finally {
+      window.clearTimeout(timer);
+      if (activo.current) setPendiente(false);
+      solicitud.current = null;
+    }
+  }
+
+  function usarEjemplo(texto: string) {
+    setPregunta(texto);
+    setError("");
+    campo.current?.focus();
+  }
+  return (
+    <>
+      <a className="saltar" href="#consulta">
+        Ir a la consulta
+      </a>
+      <header className="cabecera">
+        <a className="marca" href="/" aria-label="EducaDatos, inicio">
+          <span className="marca-icono">
+            <Icono />
+          </span>
+          <span>
+            Educa<span className="marca-acento">Datos</span>
+            <small>Educación en Colombia</small>
+          </span>
+        </a>
+        <span className="acceso">
+          <i /> Abierto para todos
+        </span>
+      </header>
+      <main>
+        <section className="hero" aria-labelledby="titulo">
+          <div className="hero-texto">
+            <span className="eyebrow">
+              <span className="colombia" aria-hidden="true" /> DATOS ABIERTOS ·
+              COLOMBIA
+            </span>
+            <h1 id="titulo">
+              Entender la educación
+              <br />
+              empieza con <em>una pregunta.</em>
+            </h1>
+            <p>
+              Explora colegios, educación superior y oportunidades educativas de
+              tu territorio. Información pública, en palabras claras.
+            </p>
+            <div className="hero-notas">
+              <span>Sin registro</span>
+              <span>Fuentes oficiales</span>
+              <span>Acceso gratuito</span>
+            </div>
+          </div>
+          <div className="hero-ilustracion" aria-hidden="true">
+            <div className="orbita">
+              <span className="orbita-punto" />
+              <span className="orbita-punto otro" />
+              <div className="centro-ilustracion">
+                <Icono />
+                <span>
+                  Más datos.
+                  <br />
+                  Más posibilidades.
+                </span>
+              </div>
+            </div>
+            <div className="mini-tarjeta tarjeta-arriba">
+              <Icono nombre="escuela" />
+              <span>Tu territorio</span>
+            </div>
+            <div className="mini-tarjeta tarjeta-abajo">
+              <Icono nombre="credito" />
+              <span>Tus oportunidades</span>
+            </div>
+          </div>
+        </section>
+        <section
+          id="consulta"
+          className="consulta card"
+          aria-labelledby="consulta-titulo"
+        >
+          <div className="section-heading">
+            <div>
+              <span className="eyebrow">EMPECEMOS</span>
+              <h2 id="consulta-titulo">¿Qué quieres saber?</h2>
+            </div>
+            <span className="paso">01 / Pregunta y explora</span>
+          </div>
+          <form onSubmit={enviar}>
+            <label htmlFor="pregunta">
+              Escribe tu pregunta sobre educación en Colombia
+            </label>
+            <textarea
+              ref={campo}
+              id="pregunta"
+              value={pregunta}
+              maxLength={2000}
+              rows={3}
+              onChange={(event) => setPregunta(event.target.value)}
+              placeholder="Por ejemplo: ¿Cuántos colegios oficiales hay en Soacha?"
+              aria-describedby="ayuda-pregunta"
+              disabled={pendiente}
+            />
+            <div className="form-footer">
+              <p id="ayuda-pregunta">
+                Incluye un municipio o departamento para obtener una respuesta
+                más precisa.
+                <span className="contador">{pregunta.length}/2000</span>
+              </p>
+              <button
+                className="boton-consultar"
+                type="submit"
+                disabled={pendiente || !pregunta.trim() || espera > 0}
+              >
+                {pendiente
+                  ? "Consultando…"
+                  : espera > 0
+                    ? `Espera ${espera} s`
+                    : "Consultar"}
+                {pendiente ? (
+                  <span className="spinner" aria-hidden="true" />
+                ) : (
+                  <Icono nombre="flecha" />
+                )}
+              </button>
+            </div>
+          </form>
+          <div role="status" aria-live="polite" aria-atomic="true">
+            {pendiente && (
+              <p className="estado">
+                Consultando fuentes oficiales. Algunas consultas pueden tardar
+                unos minutos.
+              </p>
+            )}
+            {resultado && (
+              <span className="solo-lectores">
+                Respuesta disponible debajo del formulario.
+              </span>
+            )}
+          </div>
+          {error && (
+            <p className="error" role="alert">
+              {error}
+              {espera > 0 && <span> Espera {espera} segundos.</span>}
+            </p>
+          )}
+        </section>
+        {resultado && <Resultados resultado={resultado} />}
+        <section className="ejemplos" aria-labelledby="ejemplos-titulo">
+          <div className="examples-heading">
+            <h2 id="ejemplos-titulo">Una idea para comenzar</h2>
+            <span>Elige una pregunta y hazla tuya</span>
+          </div>
+          <div className="ejemplos-grid">
+            {ejemplos.map((ejemplo) => (
+              <button
+                key={ejemplo.tema}
+                className="ejemplo"
+                disabled={pendiente}
+                onClick={() => usarEjemplo(ejemplo.pregunta)}
+              >
+                <span className="ejemplo-icono">
+                  <Icono nombre={ejemplo.icono} />
+                </span>
+                <span className="ejemplo-tema">{ejemplo.tema}</span>
+                <span className="ejemplo-pregunta">{ejemplo.pregunta}</span>
+                <span className="ejemplo-accion">
+                  Usar esta pregunta <Icono nombre="flecha" />
+                </span>
+              </button>
+            ))}
+          </div>
+        </section>
+        <section className="nota-datos">
+          <span className="nota-icono">
+            <Icono />
+          </span>
+          <div>
+            <h2>Información para explorar y comprender</h2>
+            <p>
+              Las respuestas usan datos abiertos publicados por entidades
+              oficiales en{" "}
+              <a
+                href="https://www.datos.gov.co/"
+                target="_blank"
+                rel="noopener noreferrer"
+              >
+                datos.gov.co
+              </a>
+              . La vigencia y la cobertura dependen de cada fuente. Consulta las
+              advertencias y los años reportados antes de sacar conclusiones.
+            </p>
+          </div>
+        </section>
+      </main>
+      <footer>
+        <span className="footer-marca">EducaDatos</span>
+        <span>Datos públicos. Preguntas de todos.</span>
+        <a
+          href="https://www.datos.gov.co/"
+          target="_blank"
+          rel="noopener noreferrer"
+        >
+          Portal de datos abiertos <Icono nombre="enlace" />
+        </a>
+      </footer>
+    </>
+  );
+}

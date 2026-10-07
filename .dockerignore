@@ -17,3 +17,8 @@ scripts
 docs
 resultado_pruebas_backend.json
 *.log
+web
+.github
+.firebase
+firebase.json
+.firebaserc

@@ -1,27 +1,26 @@
-# Crear la interfaz pública sin registro
+# Interfaz pública sin registro
 
-El backend está preparado. La interfaz se añadirá a `web/` dentro del repositorio
-principal: seguirá siendo un único proyecto con una copia de respaldo.
+La interfaz ya está implementada en `web/` dentro del repositorio principal.
+Es un único proyecto con una copia de respaldo. Para publicarla, sigue
+[la guía de lanzamiento](PUBLICAR.md).
 
-## 1. Crear la web
+## 1. Arrancar la web existente
 
-Usa Node.js 22.12 o posterior. Desde `educaDatos_App`:
+Usa Node.js 22.12 o posterior; se validó Node.js 24. Desde `educaDatos_App`:
 
 ```bash
-npm create vite@latest web -- --template react-ts
-cd web
-npm install
-npm run dev
+npm ci --prefix web
+npm run dev --prefix web
 ```
 
 Es una aplicación React con TypeScript. Su acceso será anónimo: no requiere una
 pantalla de registro ni una identidad para consultar esta API.
 
-Antes de guardar cambios, añade `web/node_modules/` y `web/dist/` a `.gitignore`
-y `.dockerignore`. `.env.local` ya está excluido de Git; conserva esa exclusión
-para la configuración local de la web.
+Las dependencias, la compilación y `.env.local` ya están excluidas de Git.
+El contenedor Python excluye `web/` y conserva su flujo independiente de ejecución.
 
-En `web/.env.local`, configura la URL del backend de desarrollo:
+En desarrollo, Vite conecta `/api` con FastAPI en el puerto 8000. También puedes
+configurar explícitamente la URL en `web/.env.local`:
 
 ```dotenv
 VITE_API_BASE_URL=http://127.0.0.1:8000
@@ -92,6 +91,10 @@ móvil y navegación con teclado. Luego ejecuta:
 npm run build
 ```
 
-El resultado estará en `web/dist/`, listo para el paso siguiente: publicarlo en
-Firebase Hosting y conectarlo al backend de Cloud Run. La creación y publicación
-de esta interfaz no se realizan en la tarea de optimización del backend.
+Ejecuta esa orden desde `web/`, o `npm run build --prefix web` desde la raíz.
+El resultado estará en `web/dist/`. Firebase ejecuta una comprobación de la URL
+HTTPS del backend y su salud antes de compilar y publicar. La interfaz se puede
+comprobar localmente; el lanzamiento público necesita un backend en Cloud Run.
+
+Pruebas automatizadas: `npm test --prefix web` desde la raíz. Cubren consulta,
+fuentes, advertencias, conteos no disponibles, errores y sobrecarga.

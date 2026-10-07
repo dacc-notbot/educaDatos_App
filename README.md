@@ -4,6 +4,34 @@ API pública de datos educativos de Colombia con consultas ciudadanas, diagnóst
 territoriales y agrupación exploratoria de municipios. No requiere registro ni
 claves para consultar los conjuntos públicos de datos.gov.co.
 
+La interfaz React en `web/` permite consultar desde móvil y escritorio, con fuentes,
+advertencias y mensajes de espera. Firebase está configurado para publicar
+`web/dist` en `educadatos-3617c`; el lanzamiento público espera el backend de
+Cloud Run. Sigue [la guía de publicación paso a paso](docs/PUBLICAR.md).
+
+## Interfaz web
+
+Requiere Node.js 22.12 o posterior; se validó Node.js 24. Desde la raíz:
+
+```bash
+npm ci --prefix web
+npm run dev --prefix web
+```
+
+Inicia también FastAPI con las instrucciones siguientes. Vite conecta las
+consultas `/api/chat` con el backend local. Para verificar la web:
+
+```bash
+npm test --prefix web
+npm run build --prefix web
+```
+
+La URL pública se configura en `web/.env.local` mediante `VITE_API_BASE_URL`, o
+en una variable de GitHub Actions del mismo nombre. Es pública; no contiene
+credenciales. Los workflows comprueban la web y publican desde `main` cuando
+esa variable esté configurada. Antes de desplegar, Firebase verifica la salud
+del backend y recompila la web. Conserva `package-lock.json` y usa `npm ci`.
+
 ## Un único proyecto
 
 - **Principal:** `dacc-notbot/educaDatos_App`. Aquí se desarrolla y se prueba.
@@ -83,8 +111,8 @@ docker run --rm -p 8080:8080 --env-file .env educadatos
 El contenedor usa dependencias fijadas con hashes, un usuario sin privilegios y
 el puerto `PORT` (8080 por defecto). Puede desplegarse en Cloud Run con acceso sin
 autenticación. Esta consolidación no publica ni despliega la aplicación.
-Para el lanzamiento público todavía deben definirse la interfaz web, el dominio,
-los límites de tráfico/costos y la supervisión.
+La interfaz y el dominio Firebase están preparados. Para el lanzamiento público
+falta desplegar el backend, conectar su URL y configurar capacidad y supervisión.
 
 ## Actualizar el respaldo gradualmente
 
