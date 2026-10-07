@@ -32,7 +32,7 @@ router = APIRouter(
 @router.post("/chat")
 def chat_ciudadano(payload: PreguntaRequest):
     try:
-        return resolver_consulta_ciudadana(payload.pregunta)
+        return resolver_consulta_ciudadana(payload.pregunta, limit=payload.limit)
     except ValueError as error:
         raise HTTPException(status_code=422, detail=str(error)) from error
     except RuntimeError as error:
@@ -46,7 +46,8 @@ def consultar_colegios(payload: ConsultaColegiosRequest):
             departamento=payload.departamento,
             municipio=payload.municipio,
             sector=payload.sector,
-            limit=payload.limit or 100000
+            limit=payload.limit,
+            modo_respuesta=payload.modo_respuesta,
         )
     except ValueError as error:
         raise HTTPException(status_code=422, detail=str(error)) from error
@@ -74,7 +75,8 @@ def consultar_bachilleres(payload: TerritorioRequest):
     try:
         return consultar_bachilleres_service(
             departamento=payload.departamento,
-            municipio=payload.municipio
+            municipio=payload.municipio,
+            limit=payload.limit,
         )
     except ValueError as error:
         raise HTTPException(status_code=422, detail=str(error)) from error
@@ -102,7 +104,8 @@ def consultar_transito_educativo(payload: TerritorioRequest):
     try:
         return analizar_transito_educativo_service(
             departamento=payload.departamento,
-            municipio=payload.municipio
+            municipio=payload.municipio,
+            limit=payload.limit,
         )
     except ValueError as error:
         raise HTTPException(status_code=422, detail=str(error)) from error
@@ -115,7 +118,8 @@ def consultar_diagnostico(payload: TerritorioRequest):
     try:
         return diagnostico_territorial_educativo_service(
             departamento=payload.departamento,
-            municipio=payload.municipio
+            municipio=payload.municipio,
+            limit=payload.limit,
         )
     except ValueError as error:
         raise HTTPException(status_code=422, detail=str(error)) from error
@@ -128,7 +132,8 @@ def consultar_grupo_estadistico(payload: MunicipioRequest):
     try:
         return consultar_cluster_municipio_service(
             departamento=payload.departamento,
-            municipio=payload.municipio
+            municipio=payload.municipio,
+            limit=payload.limit,
         )
     except ValueError as error:
         raise HTTPException(status_code=422, detail=str(error)) from error
@@ -141,7 +146,8 @@ def consultar_municipios_similares(payload: MunicipioRequest):
     try:
         return buscar_municipios_similares_service(
             departamento=payload.departamento,
-            municipio=payload.municipio
+            municipio=payload.municipio,
+            limit=payload.limit,
         )
     except ValueError as error:
         raise HTTPException(status_code=422, detail=str(error)) from error
@@ -154,7 +160,8 @@ def consultar_recomendaciones(payload: MunicipioRequest):
     try:
         return generar_recomendaciones_municipio_service(
             departamento=payload.departamento,
-            municipio=payload.municipio
+            municipio=payload.municipio,
+            limit=payload.limit,
         )
     except ValueError as error:
         raise HTTPException(status_code=422, detail=str(error)) from error

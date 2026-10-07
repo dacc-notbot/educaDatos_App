@@ -4,6 +4,10 @@ API pública de datos educativos de Colombia con consultas ciudadanas, diagnóst
 territoriales y agrupación exploratoria de municipios. No requiere registro ni
 claves para consultar los conjuntos públicos de datos.gov.co.
 
+Para arrancar y probar el servicio Python antes de desplegar, sigue
+[la guía del backend para tu Mac](docs/BACKEND.md). El ZIP reconstruido se analizó
+y se adaptó al proyecto: [hallazgos y decisiones](docs/REVISION_BACKEND_ZIP.md).
+
 La interfaz React en `web/` permite consultar desde móvil y escritorio, con fuentes,
 advertencias y mensajes de espera. Firebase está configurado para publicar
 `web/dist` en `educadatos-3617c`; el lanzamiento público espera el backend de

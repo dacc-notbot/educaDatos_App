@@ -2,8 +2,10 @@ from typing import Any, Dict, Optional
 
 from fastapi import FastAPI, Query, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
-from models.schemas import PreguntaRequest, MunicipioRequest
+from models.schemas import PreguntaRequest, MunicipioRequest, TerritorioRequest, EducaDatosResponse
 from services.router_ciudadano import router as router_ciudadano
+from services.router_api import router as router_api
+from services.adaptador_api import adaptar_consulta_para_app, adaptar_servicio_para_app
 from services.establecimientos_service import consultar_establecimientos_educativos_service
 from fastapi.responses import JSONResponse
 import logging
@@ -56,6 +58,7 @@ async def limitar_analisis_simultaneos(request, call_next):
     analitica = path.startswith((
         "/chat", "/consulta", "/diagnostico", "/metadata", "/cluster", "/similar",
         "/recomendaciones", "/colegios", "/territorios", "/ciudadano", "/cruce",
+        "/programas-superior", "/bachilleres", "/icetex", "/transito-educativo",
     )) or (path.startswith("/datasets/") and path.count("/") >= 3)
     if not analitica or request.method == "OPTIONS":
         return await call_next(request)
@@ -88,6 +91,7 @@ app.add_middleware(
 # ============================================================
 
 app.include_router(router_ciudadano)
+app.include_router(router_api)
 
 
 @app.exception_handler(RuntimeError)
@@ -105,198 +109,37 @@ async def error_consulta(request, error):
 # ============================================================
 
 def adaptar_respuesta_para_app(resultado: Dict[str, Any]) -> Dict[str, Any]:
-    """
-    Convierte la salida amplia de resolver_consulta_ciudadana()
-    al formato esperado por la app Google/React:
-
-    {
-      pregunta,
-      respuesta,
-      datos,
-      fuentes,
-      advertencias
-    }
-    """
-
-    respuesta_ciudadana = resultado.get("respuesta_ciudadana", {}) or {}
-
-    respuesta = (
-        respuesta_ciudadana.get("respuesta_corta")
-        or resultado.get("respuesta")
-        or "Consulta procesada por EducaDatos."
-    )
-
-    hallazgos = (
-        respuesta_ciudadana.get("hallazgos_principales")
-        or respuesta_ciudadana.get("hallazgos_integrados")
-        or []
-    )
-
-    if hallazgos:
-        respuesta += "\n\nHallazgos principales:\n"
-        for hallazgo in hallazgos[:8]:
-            respuesta += f"- {hallazgo}\n"
-
-    fuentes = []
-
-    fuente_usada = respuesta_ciudadana.get("fuente_usada")
-
-    if isinstance(fuente_usada, dict):
-        nombre = fuente_usada.get("nombre")
-        url = fuente_usada.get("url")
-
-        if nombre:
-            fuentes.append(nombre)
-
-        if url:
-            fuentes.append(url)
-
-    fuentes_usadas = resultado.get("fuentes_usadas", [])
-
-    if isinstance(fuentes_usadas, list):
-        for fuente in fuentes_usadas:
-            if isinstance(fuente, dict):
-                nombre = fuente.get("nombre")
-                url = fuente.get("url")
-
-                if nombre:
-                    fuentes.append(nombre)
-
-                if url:
-                    fuentes.append(url)
-
-    # Quitar fuentes duplicadas conservando orden.
-    fuentes_limpias = []
-    vistas = set()
-
-    for fuente in fuentes:
-        if fuente and fuente not in vistas:
-            fuentes_limpias.append(fuente)
-            vistas.add(fuente)
-
-    advertencias = (
-        respuesta_ciudadana.get("limitaciones")
-        or resultado.get("limitaciones")
-        or []
-    )
-
-    resultado_completo = resultado.get("resultados", {}) or {}
-
-    datos_servicio = {}
-
-    if isinstance(resultado_completo, dict):
-        datos_servicio = resultado_completo.get("datos", {}) or {}
-
-    datos = {
-        "pregunta_recibida": resultado.get("pregunta_recibida"),
-        "intencion_detectada": resultado.get("intencion_detectada"),
-        "explicacion_enrutamiento": resultado.get("explicacion_enrutamiento"),
-        "dataset_usado": resultado.get("dataset_usado"),
-        "territorio_detectado": resultado.get("territorio_detectado"),
-        "texto_busqueda_usado": resultado.get("texto_busqueda_usado"),
-        "total_resultados": resultado.get("total_resultados"),
-
-        # Datos internos del servicio especializado
-        "detalle_consulta": datos_servicio,
-
-        # Muestra resumida para el ciudadano
-        "resultados_muestra": respuesta_ciudadana.get("resultados_muestra", []),
-
-        # Sugerencias
-        "sugerencias_de_siguiente_pregunta": respuesta_ciudadana.get(
-        "sugerencias_de_siguiente_pregunta", []
-        ),
-    }   
-
-    return {
-        "pregunta": resultado.get("pregunta_recibida"),
-        "respuesta": respuesta,
-        "datos": datos,
-        "fuentes": fuentes_limpias,
-        "advertencias": advertencias,
-            }
+    """Mantiene el contrato de /chat y recupera evidencia de los servicios."""
+    return adaptar_consulta_para_app(resultado)
 
 
 def adaptar_diagnostico_directo_para_app(
-    resultado: Dict[str, Any],
-    pregunta: Optional[str] = None
+    resultado: Dict[str, Any], pregunta: Optional[str] = None
 ) -> Dict[str, Any]:
-    """
-    Adapta la salida directa de diagnostico_territorial_educativo_service()
-    al formato de la app.
-    """
-
-    respuesta_ciudadana = resultado.get("respuesta_ciudadana", {}) or {}
-
-    respuesta = respuesta_ciudadana.get(
-        "respuesta_corta",
-        "Se generó un diagnóstico territorial educativo."
-    )
-
-    hallazgos = respuesta_ciudadana.get("hallazgos_integrados", [])
-
-    if hallazgos:
-        respuesta += "\n\nHallazgos principales:\n"
-        for hallazgo in hallazgos[:8]:
-            respuesta += f"- {hallazgo}\n"
-
-    fuentes = []
-
-    for fuente in resultado.get("fuentes_usadas", []):
-        if isinstance(fuente, dict):
-            if fuente.get("nombre"):
-                fuentes.append(fuente["nombre"])
-            if fuente.get("url"):
-                fuentes.append(fuente["url"])
-
-    return {
-        "pregunta": pregunta,
-        "respuesta": respuesta,
-        "datos": {
-            "tipo_analisis": resultado.get("tipo_analisis"),
-            "territorio_consultado": resultado.get("territorio_consultado"),
-            "componentes": resultado.get("componentes"),
-            "sugerencias_de_siguiente_pregunta": respuesta_ciudadana.get(
-                "sugerencias_de_siguiente_pregunta", []
-            ),
-        },
-        "fuentes": fuentes,
-        "advertencias": respuesta_ciudadana.get("limitaciones", []),
-    }
+    return adaptar_servicio_para_app(resultado, pregunta)
 
 
 def adaptar_cluster_directo_para_app(
-    resultado: Dict[str, Any],
-    pregunta: Optional[str] = None
+    resultado: Dict[str, Any], pregunta: Optional[str] = None
 ) -> Dict[str, Any]:
-    """
-    Adapta la salida directa de consultar_cluster_municipio_service()
-    al formato de la app.
-    """
-
     municipio = resultado.get("municipio_consultado")
     departamento = resultado.get("departamento")
-    cluster = resultado.get("cluster_asignado")
-    explicacion = resultado.get("explicacion_cluster")
-
-    respuesta = (
-        f"{municipio}, {departamento}, fue asignado al clúster {cluster} "
-        "según las variables educativas disponibles."
-    )
-
+    cluster = resultado.get("cluster_asignado", resultado.get("grupo_estadistico_asignado"))
+    explicacion = resultado.get("explicacion_cluster") or resultado.get("explicacion_grupo_estadistico")
+    if cluster is None:
+        respuesta = f"No hay un grupo estadístico disponible para {municipio}, {departamento}."
+    else:
+        respuesta = f"{municipio}, {departamento}, pertenece al grupo estadístico {cluster} según los indicadores educativos disponibles."
     if explicacion:
-        respuesta += f"\n\nLectura del clúster:\n- {explicacion}"
-
-    return {
-        "pregunta": pregunta,
-        "respuesta": respuesta,
-        "datos": resultado,
-        "fuentes": [
-            "MEN - Estadísticas en educación preescolar, básica y media por municipio",
-            "https://www.datos.gov.co/resource/nudc-7mev.json",
-        ],
-        "advertencias": resultado.get("advertencias_o_limitaciones", []),
+        respuesta += f"\n\nLectura del grupo:\n- {explicacion}"
+    resultado_con_fuentes = {
+        **resultado,
+        "fuentes_usadas": resultado.get("fuentes_usadas") or [{
+            "nombre": DATASETS[DATASET_BASE]["nombre"],
+            "url": DATASETS[DATASET_BASE]["url"],
+        }],
     }
+    return adaptar_servicio_para_app(resultado_con_fuentes, pregunta, respuesta)
 
 
 # ============================================================
@@ -446,7 +289,7 @@ def buscar_en_dataset_educativo(
 # Consulta ciudadana y chat
 # ============================================================
 
-@app.get("/consulta", operation_id="consultaCiudadanaEducativa")
+@app.get("/consulta", response_model=EducaDatosResponse, operation_id="consultaCiudadanaEducativa")
 def consulta_ciudadana_educativa(
     pregunta: str = Query(
         ...,
@@ -473,7 +316,7 @@ def consulta_ciudadana_educativa(
         raise HTTPException(status_code=502, detail=str(error))
 
 
-@app.post("/chat", operation_id="chatCiudadanoEducaDatos")
+@app.post("/chat", response_model=EducaDatosResponse, operation_id="chatCiudadanoEducaDatos")
 def chat_ciudadano(request: PreguntaRequest):
     """
     Endpoint principal para la app Google/React.
@@ -507,7 +350,7 @@ def chat_ciudadano(request: PreguntaRequest):
     try:
         resultado = resolver_consulta_ciudadana(
             pregunta=pregunta,
-            limit=1000,
+            limit=request.limit,
         )
 
         return adaptar_respuesta_para_app(resultado)
@@ -556,7 +399,7 @@ def generar_diagnostico_territorial_educativo(
         raise HTTPException(status_code=502, detail=str(error))
 
 
-@app.get("/diagnostico-municipal", operation_id="diagnosticoMunicipalAliasGet")
+@app.get("/diagnostico-municipal", response_model=EducaDatosResponse, operation_id="diagnosticoMunicipalAliasGet")
 def diagnostico_municipal_alias_get(
     departamento: str = Query(
         ...,
@@ -584,17 +427,17 @@ def diagnostico_municipal_alias_get(
     )
 
 
-@app.post("/diagnostico-municipal", operation_id="diagnosticoMunicipalAliasPost")
-def diagnostico_municipal_alias_post(request: MunicipioRequest):
+@app.post("/diagnostico-municipal", response_model=EducaDatosResponse, operation_id="diagnosticoMunicipalAliasPost")
+def diagnostico_municipal_alias_post(request: TerritorioRequest):
     resultado = diagnostico_territorial_educativo_service(
         departamento=request.departamento,
         municipio=request.municipio,
-        limit=1000,
+        limit=request.limit,
     )
 
     return adaptar_diagnostico_directo_para_app(
         resultado=resultado,
-        pregunta=f"Diagnóstico educativo de {request.municipio}, {request.departamento}",
+        pregunta=f"Diagnóstico educativo de {request.municipio or request.departamento}",
     )
 
 
@@ -739,13 +582,13 @@ def consultar_cluster_municipio(
         raise HTTPException(status_code=502, detail=str(error))
 
 
-@app.post("/cluster-municipal", operation_id="clusterMunicipalAliasPost")
+@app.post("/cluster-municipal", response_model=EducaDatosResponse, operation_id="clusterMunicipalAliasPost")
 def cluster_municipal_alias_post(request: MunicipioRequest):
     try:
         resultado = consultar_cluster_municipio_service(
             departamento=request.departamento,
             municipio=request.municipio,
-            limit=100000,
+            limit=request.limit,
         )
 
         return adaptar_cluster_directo_para_app(
@@ -754,25 +597,10 @@ def cluster_municipal_alias_post(request: MunicipioRequest):
         )
 
     except ValueError as error:
-        return {
-            "pregunta": f"Clúster educativo de {request.municipio}, {request.departamento}",
-            "respuesta": "No pude encontrar el municipio para calcular el clúster educativo.",
-            "datos": {},
-            "fuentes": [
-                "MEN - Estadísticas en educación preescolar, básica y media por municipio",
-                "https://www.datos.gov.co/resource/nudc-7mev.json",
-            ],
-            "advertencias": [str(error)],
-        }
+        raise HTTPException(status_code=404, detail=str(error)) from error
 
     except RuntimeError as error:
-        return {
-            "pregunta": f"Clúster educativo de {request.municipio}, {request.departamento}",
-            "respuesta": "No pude consultar los datos necesarios para calcular el clúster.",
-            "datos": {},
-            "fuentes": [],
-            "advertencias": [str(error)],
-        }
+        raise HTTPException(status_code=502, detail=str(error)) from error
 
 
 @app.get("/similar/municipios", operation_id="buscarMunicipiosSimilares")
