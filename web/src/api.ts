@@ -146,6 +146,7 @@ export function enlacePublico(texto: string): string | null {
 
 export function mostrarValor(valor: unknown, clave = ""): string {
   if (valor == null) return "No disponible";
+  if (/codigo|cod_dane/.test(clave) && ["string", "number"].includes(typeof valor)) return String(valor);
   if (["vigencia_mas_reciente", "anio_usado", "a_o", "anio", "ano", "año", "vigencia", "year"].includes(clave)) {
     const anio = Number(valor);
     return Number.isInteger(anio) && anio >= 1000 && anio <= 9999 ? String(anio) : "No disponible";

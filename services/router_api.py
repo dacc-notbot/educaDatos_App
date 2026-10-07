@@ -8,8 +8,16 @@ from models.schemas import (ConsultaColegiosRequest, ConsultaProgramasRequest, C
 from services.adaptador_api import adaptar_servicio_para_app
 from services import establecimientos_service, programas_service, bachilleres_service, icetex_service
 from services import cruce_service, clustering_service
+from models.schemas import ConsultaDaneRequest
+from services.codigo_dane_service import consultar_codigo_dane_service
 
 router = APIRouter(tags=["Consultas estructuradas"])
+
+
+@router.post("/colegios/codigo-dane", response_model=EducaDatosResponse, operation_id="consultarCodigoDane")
+def codigo_dane(payload: ConsultaDaneRequest):
+    resultado = consultar_codigo_dane_service(**payload.model_dump())
+    return adaptar_servicio_para_app(resultado, f"Código DANE: {payload.nombre or payload.codigo}")
 
 
 def _territorio(payload):
@@ -31,7 +39,7 @@ def colegios(payload: ConsultaColegiosRequest):
 @router.post("/programas-superior", response_model=EducaDatosResponse, operation_id="programasEstructurados")
 def programas(payload: ConsultaProgramasRequest):
     resultado = programas_service.consultar_programas_superior_service(
-        departamento=payload.departamento, municipio=payload.municipio, texto=payload.texto, limit=payload.limit)
+        departamento=payload.departamento, municipio=payload.municipio, texto=payload.texto, limit=payload.limit, estado=payload.estado)
     return adaptar_servicio_para_app(resultado, f"Educación superior en {_territorio(payload) or 'Colombia'}")
 
 
@@ -45,8 +53,8 @@ def bachilleres(payload: TerritorioRequest):
 @router.post("/icetex", response_model=EducaDatosResponse, operation_id="icetexEstructurado")
 def icetex(payload: ConsultaIcetexRequest):
     resultado = icetex_service.consultar_icetex_service(
-        departamento=payload.departamento, municipio=payload.municipio, tipo=payload.tipo, limit=payload.limit)
-    return adaptar_servicio_para_app(resultado, f"ICETEX {payload.tipo} en {_territorio(payload)}")
+        departamento=payload.departamento, municipio=payload.municipio, tipo=payload.tipo, limit=payload.limit, anio=payload.anio, filtros=payload.filtros)
+    return adaptar_servicio_para_app(resultado, f"ICETEX {payload.tipo} en {_territorio(payload) or 'Colombia'}")
 
 
 @router.post("/transito-educativo", response_model=EducaDatosResponse, operation_id="transitoEstructurado")

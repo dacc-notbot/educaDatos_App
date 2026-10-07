@@ -1,8 +1,9 @@
 import { useEffect, useRef, useState } from "react";
 import { consultarColegios, ErrorConsulta, mostrarValor, type Registro } from "./api";
+import Paginador, { FILAS_POR_PAGINA as TAMANO_PAGINA } from "./Paginador";
+import DetalleRegistro from "./DetalleRegistro";
 
 type Filtro = "Público" | "Privado" | "Todos";
-const TAMANO_PAGINA = 25;
 const normalizar = (texto: string) => texto.normalize("NFD").replace(/[\u0300-\u036f]/g, "").toLowerCase();
 
 function colegios(detalle: Registro): Registro[] {
@@ -25,6 +26,7 @@ export default function ListaColegios({ detalle }: { detalle: Registro }) {
   const [completo, setCompleto] = useState<Registro | null>(inicial === "Todos" ? detalle : null);
   const [busqueda, setBusqueda] = useState("");
   const [pagina, setPagina] = useState(0);
+  const [dane, setDane] = useState<Registro | null>(null);
   const [cargando, setCargando] = useState(false);
   const [error, setError] = useState("");
   const [esperarHasta, setEsperarHasta] = useState(0);
@@ -82,9 +84,8 @@ export default function ListaColegios({ detalle }: { detalle: Registro }) {
   const datos = completo || detalle;
   const lista = colegios(datos).filter((fila) =>
     (filtro === "Todos" || tipoColegio(fila) === filtro) &&
-    normalizar(String(fila.nombre_establecimiento || "")).includes(normalizar(busqueda.trim())),
+    (normalizar(String(fila.nombre_establecimiento || "")).includes(normalizar(busqueda.trim())) || String(fila.codigo_establecimiento || "").includes(busqueda.trim())),
   );
-  const paginas = Math.max(1, Math.ceil(lista.length / TAMANO_PAGINA));
   const desde = pagina * TAMANO_PAGINA;
   return (
     <section className="directorio" aria-labelledby="directorio-titulo">
@@ -102,33 +103,38 @@ export default function ListaColegios({ detalle }: { detalle: Registro }) {
       {filtro && (
         <>
           <p className="directorio-vigencia">Colegios {filtro === "Todos" ? "públicos y privados" : filtro.toLowerCase() + "s"} · Año {mostrarValor(datos.vigencia_mas_reciente, "vigencia_mas_reciente")}</p>
-          <label className="buscar-colegio">Buscar colegio por nombre
-            <input type="search" value={busqueda} placeholder="Escribe el nombre del colegio"
+          <label className="buscar-colegio">Buscar colegio por nombre o código DANE
+            <input type="search" value={busqueda} placeholder="Escribe el nombre o el código DANE"
               onChange={(event) => { setBusqueda(event.target.value); setPagina(0); }} />
           </label>
           <p className="resumen-lista" role="status">
             {lista.length ? `Mostrando ${desde + 1}–${Math.min(desde + TAMANO_PAGINA, lista.length)} de ${mostrarValor(lista.length)} colegios` : "No se encontraron colegios con este filtro."}
           </p>
+          <p className="ayuda-listado">Pulsa el nombre de un colegio para consultar su código DANE.</p>
           {lista.length > 0 && (
             <>
+              <div className="panel-registros">
               <div className="lista-encabezado" aria-hidden="true"><span>Colegio</span><span>Tipo</span></div>
               <ul className="lista-colegios" aria-label="Listado de colegios">
                 {lista.slice(desde, desde + TAMANO_PAGINA).map((fila, i) => (
                   <li key={String(fila.codigo_establecimiento || fila.nombre_establecimiento) + i}>
-                    <span>{String(fila.nombre_establecimiento || "Nombre no informado")}</span>
+                    <button type="button" className="nombre-colegio" onClick={() => setDane({
+                      nombre_establecimiento: fila.nombre_establecimiento, tipo: tipoColegio(fila),
+                      codigo_establecimiento: fila.codigo_establecimiento,
+                    })} aria-label={`Consultar código DANE de ${fila.nombre_establecimiento}`}>
+                      {String(fila.nombre_establecimiento || "Nombre no informado")}
+                    </button>
                     <span className="tipo-colegio">{tipoColegio(fila)}</span>
                   </li>
                 ))}
               </ul>
-              {paginas > 1 && <nav className="paginas-colegios" aria-label="Páginas de colegios">
-                <button type="button" disabled={pagina === 0} onClick={() => setPagina(pagina - 1)}>Anterior</button>
-                <span>Página {pagina + 1} de {paginas}</span>
-                <button type="button" disabled={pagina + 1 >= paginas} onClick={() => setPagina(pagina + 1)}>Siguiente</button>
-              </nav>}
+              </div>
+              <Paginador pagina={pagina} total={lista.length} cambiar={setPagina} nombre="colegios" />
             </>
           )}
         </>
       )}
+      {dane && <DetalleRegistro fila={dane} cerrar={() => setDane(null)} titulo="Código DANE del colegio" />}
     </section>
   );
 }

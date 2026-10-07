@@ -79,7 +79,13 @@ el diseño: gris neutro (fondo `#f7f7f7`, botón `#333333`) o gris pizarra
 - `¿Cuántos colegios hay en Villavicencio?` muestra el número y los botones
   **Conocer públicos**, **Conocer privados** y **Conocerlos todos**.
 - Cada entrada presenta únicamente el nombre del colegio y su tipo. La lista
-  incluye búsqueda por nombre (sin exigir tildes) y páginas de 25 entradas.
+  incluye búsqueda por nombre o código DANE (sin exigir tildes) y páginas de
+  cinco entradas en un panel de altura fija. Cambiar de página no alarga el
+  documento ni mueve al usuario a otra parte de la pantalla. Los controles
+  Anterior, Siguiente e Ir a la página están siempre debajo del mismo panel.
+- Pulsar el nombre abre el código DANE en un diálogo accesible. El código se
+  presenta como identificador, sin puntos ni separadores de miles. Si falta en
+  la fuente, se informa su ausencia. El diálogo conserva la posición de lectura.
 - Al pulsar un botón desde un conteo se consulta `POST /colegios` con el territorio
   detectado y `modo_respuesta: lista`. Los cambios de filtro posteriores reutilizan
   ese directorio completo. Un fallo mantiene el conteo y permite reintentar.
@@ -88,6 +94,41 @@ el diseño: gris neutro (fondo `#f7f7f7`, botón `#333333`) o gris pizarra
 - La vigencia del listado proviene de la API: no se afirma que represente cambios
   ocurridos después del año publicado. Los tipos desconocidos se muestran como
   «Sin dato»; no se les asigna un sector inventado.
+
+### Otras fuentes y educación superior
+
+La respuesta principal contiene el resultado relacionado con la pregunta. Los
+pasos internos de descarga y filtrado no se muestran como hallazgos ciudadanos.
+Las limitaciones se conservan en «Sobre esta información» y los hallazgos útiles
+se pueden desplegar. Las sugerencias son botones que preparan una pregunta
+editable; no la envían automáticamente.
+
+`TablaDatos.tsx` presenta las colecciones preparadas por el backend: registros de
+bachilleres, instituciones y modalidades frecuentes, municipios
+similares, recomendaciones, conectividad y demás registros que ya trae la
+respuesta. Solo cambia el contenido de un panel de 360 px, con cinco filas,
+búsqueda, salto de página y detalle individual. Una selección permite cambiar
+de colección sin apilar varias tablas. Se indica explícitamente cuándo son
+muestras o resúmenes; la paginación no transforma una muestra en una lista completa.
+
+Para educación superior se muestran título otorgado, institución, nivel y
+estado. `OfertaSuperior.tsx` presenta distribuciones por estado y nivel y un
+buscador de programa con ámbito territorial o nacional. La tabla permite filtrar
+Activo/Inactivo y nivel académico. No se ocultan ofertas inactivas ni se mezclan
+sus estados al quitar repeticiones. Cuando nombres de programa son inconsistentes,
+la pantalla explica brevemente que busca por los títulos reportados; el indicador
+de programas únicos no se presenta como un número ni como una tarjeta vacía.
+
+Ejemplos: `Arquitectura`, `Ingeniería de Sistemas en Meta`,
+`Programa "Diseño Gráfico" en Medellín` o
+`Código DANE del colegio "Academia Militar José Antonio Páez" en Villavicencio`.
+Las búsquedas por nombre sin territorio se realizan a nivel nacional. Las
+coincidencias ambiguas se muestran para que el usuario pueda precisar su elección.
+
+Una pregunta de opinión, argumentación, ideología o explicación causal recibe
+una orientación hacia datos publicados y ejemplos de consultas. Las explicaciones
+de los registros y los diagnósticos descriptivos siguen disponibles. La detección
+usa reglas de texto explícitas, no comprensión generativa de cualquier frase.
 
 La fuente oficial de programas tiene una inconsistencia de identificación.
 La interfaz debe conservar la advertencia del backend y distinguir los títulos
@@ -122,3 +163,36 @@ comprobar localmente; el lanzamiento público necesita un backend en Cloud Run.
 Pruebas automatizadas: `npm test --prefix web` desde la raíz. Cubren consulta,
 fuentes, advertencias, conteos no disponibles, años, errores, sobrecarga,
 directorio, filtros, búsqueda, paginación y recuperación tras fallos.
+
+### ICETEX: cifras, tablas y gráficos
+
+`ResumenIcetex.tsx` muestra un total con su unidad exacta, el año y el departamento
+**de origen**. Otorgados = nuevos beneficiarios reportados; renovados = renovaciones,
+no personas únicas. Nunca suma estas dos medidas ni los totales de distintas vistas.
+
+El usuario puede elegir **Tabla** o **Gráfico**, año, tipo de datos y una distribución:
+nivel de formación, línea de financiación, destino del crédito, sector de la
+institución, sexo reportado, estrato, tipo de territorio, departamento de origen o
+periodo del año. **Evolución por año** permite comparar los años publicados. Son
+cinco categorías por página en el mismo panel fijo. El tamaño de las barras usa
+la escala de toda la distribución, conservada al cambiar de página; las tablas
+muestran cantidades y porcentajes sobre el total filtrado del año, sin porcentajes
+cuando ese total es cero ni en la comparación anual. Los gráficos tienen etiquetas
+accesibles y la tabla permite abrir el detalle de cada cifra.
+
+Los rangos de desembolso se muestran exclusivamente en una tabla, acompañados de
+su explicación: la fuente publica códigos, no montos exactos en pesos. No se
+transforman números romanos en cantidades monetarias. Las consultas por ciudad
+informan que no existe ese detalle y sugieren el departamento; no muestran cero
+como si no hubiera beneficiarios. Tampoco se inventan universidades a partir del
+sector de las instituciones. El último año disponible puede actualizarse y no
+garantiza un reporte anual completo.
+
+Ejemplos: `ICETEX en Meta`, `ICETEX de pregrado en Meta`,
+`ICETEX para mujeres de estrato 2 en Meta`, `ICETEX renovados en Meta en 2024`,
+`ICETEX otorgados y renovados en Meta` e `ICETEX en Colombia`.
+La vista inicial corresponde al dato solicitado cuando se reconoce: por sexo,
+estrato, periodos, rangos o evolución. Cambiar el año conserva los filtros
+expresados en la pregunta. Una comparación
+presenta las medidas separadas y permite elegir cuál explorar. Los diagnósticos
+que incluyen componentes ICETEX también conservan esta presentación.

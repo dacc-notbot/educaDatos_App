@@ -144,10 +144,12 @@ def resumir_programas(resultado: Dict[str, Any]) -> Dict[str, Any]:
 
 def resumir_icetex(resultado: Dict[str, Any]) -> Dict[str, Any]:
     datos = extraer_datos_servicio(resultado)
+    visual = datos.get("visualizacion_icetex")
+    disponible = visual.get("cobertura_disponible") if isinstance(visual, dict) else True
 
     return {
-        "ok": resultado.get("ok"),
-        "error": resultado.get("error"),
+        "ok": resultado.get("ok") and disponible,
+        "error": resultado.get("error") if disponible else extraer_respuesta_servicio(resultado),
         "respuesta_corta": extraer_respuesta_servicio(resultado),
         "anio_usado": datos.get("anio_usado"),
         "limit_usado": datos.get("limit_usado"),
@@ -254,8 +256,9 @@ def construir_lectura_integrada(
     if resumen_icetex_otorgados.get("ok"):
         if total_otorgados is not None:
             hallazgos.append(
-                "En créditos ICETEX otorgados, se estimó una suma aproximada de "
-                f"{formato_numero(total_otorgados)} créditos o beneficiarios en la vigencia más reciente detectada."
+                "ICETEX reportó "
+                f"{formato_numero(total_otorgados)} nuevos beneficiarios de crédito "
+                f"en {resumen_icetex_otorgados.get('anio_usado')} para el departamento de origen consultado."
             )
         else:
             hallazgos.append(
@@ -271,9 +274,9 @@ def construir_lectura_integrada(
     if resumen_icetex_renovados.get("ok"):
         if total_renovados is not None:
             hallazgos.append(
-                "En créditos ICETEX renovados, se estimó una suma aproximada de "
-                f"{formato_numero(total_renovados)} renovaciones, créditos o beneficiarios "
-                "en la vigencia más reciente detectada."
+                "ICETEX reportó "
+                f"{formato_numero(total_renovados)} renovaciones de crédito "
+                f"en {resumen_icetex_renovados.get('anio_usado')} para el departamento de origen consultado; no son personas únicas."
             )
         else:
             hallazgos.append(

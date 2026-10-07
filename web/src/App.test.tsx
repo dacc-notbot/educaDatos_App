@@ -12,6 +12,93 @@ import { enlacePublico, esperaDeReintento, mostrarValor } from "./api";
 afterEach(() => {
   cleanup();
   vi.unstubAllGlobals();
+  vi.restoreAllMocks();
+});
+
+it("permite consultar el código DANE de un colegio y buscar por ese identificador", async () => {
+  // jsdom no implementa dialog; Chromium verifica el diálogo nativo.
+  Object.defineProperty(HTMLDialogElement.prototype, "showModal", { configurable: true, value: function (this: HTMLDialogElement) { this.setAttribute("open", ""); } });
+  Object.defineProperty(HTMLDialogElement.prototype, "close", { configurable: true, value: function (this: HTMLDialogElement) { this.removeAttribute("open"); } });
+  vi.stubGlobal("fetch", vi.fn().mockResolvedValue(respuestaColegios()));
+  render(<App />);
+  preguntar("Colegios en Villavicencio");
+  await screen.findByRole("list", { name: "Listado de colegios" });
+  fireEvent.click(screen.getByRole("button", { name: "Consultar código DANE de Colegio 01" }));
+  expect(screen.getByRole("dialog", { name: "Código DANE del colegio" })).toBeTruthy();
+  expect(screen.getByText("Código DANE")).toBeTruthy();
+  expect(screen.getByText("1", { selector: "dd" })).toBeTruthy();
+  fireEvent.click(screen.getByRole("button", { name: "Cerrar" }));
+  expect(screen.queryByRole("dialog")).toBeNull();
+  fireEvent.change(screen.getByLabelText("Buscar colegio por nombre o código DANE"), { target: { value: "61" } });
+  expect(screen.getByRole("button", { name: "Consultar código DANE de Colegio 61" })).toBeTruthy();
+});
+
+it("pagina los registros de otras fuentes sin eliminar los posteriores a diez y cambia de colección", async () => {
+  const filas = Array.from({ length: 17 }, (_, i) => ({ titulo_obtenido: `Título ${i + 1}`, institucion: "Universidad", anio: 2025 }));
+  vi.stubGlobal("fetch", vi.fn().mockResolvedValue(new Response(JSON.stringify({ respuesta: "Títulos reportados.", datos: {
+    colecciones: [
+      { titulo: "Títulos", filas, es_muestra: true },
+      { titulo: "Créditos", filas: [{ institucion: "Instituto", cantidad: 0 }], es_muestra: true },
+    ],
+  } }), { status: 200 })));
+  render(<App />);
+  preguntar("Educación superior en Meta");
+  await screen.findByRole("table", { name: "Títulos" });
+  expect(screen.getByText("Título 5")).toBeTruthy();
+  expect(screen.queryByText("Título 6")).toBeNull();
+  expect(screen.getByText(/no el total de la fuente/)).toBeTruthy();
+  fireEvent.change(screen.getByLabelText("Ir a la página"), { target: { value: "4" } });
+  expect(screen.getByText("Título 17")).toBeTruthy();
+  expect(screen.queryByText("Título 1")).toBeNull();
+  fireEvent.change(screen.getByLabelText("Información para explorar"), { target: { value: "1" } });
+  expect(screen.getByRole("table", { name: "Créditos" })).toBeTruthy();
+  expect(screen.getByText("0", { selector: ".celda-datos" })).toBeTruthy();
+  expect(screen.queryByRole("button", { name: "Siguiente" })).toBeNull();
+});
+
+it("la orientación ofrece preguntas editables sin enviarlas automáticamente", async () => {
+  const fetchMock = vi.fn().mockResolvedValue(new Response(JSON.stringify({ respuesta: "EducaDatos presenta información de fuentes oficiales.", datos: {
+    sugerencias_de_siguiente_pregunta: ["Colegios en Villavicencio"],
+  } }), { status: 200 }));
+  vi.stubGlobal("fetch", fetchMock);
+  render(<App />);
+  preguntar("¿Qué opinas de la educación?");
+  await screen.findByText("EducaDatos presenta información de fuentes oficiales.");
+  fireEvent.click(screen.getByRole("button", { name: "Colegios en Villavicencio" }));
+  expect((screen.getByRole("textbox") as HTMLTextAreaElement).value).toBe("Colegios en Villavicencio");
+  expect(fetchMock).toHaveBeenCalledTimes(1);
+});
+
+it("presenta educación superior con estados y niveles, y filtra ofertas sin cifras técnicas", async () => {
+  const filas = [
+    { titulo_obtenido: "INGENIERO DE SISTEMAS", institucion: "Universidad A", nivel: "Universitaria", estado: "Activo" },
+    { titulo_obtenido: "INGENIERO DE SISTEMAS", institucion: "Universidad B", nivel: "Universitaria", estado: "Inactivo" },
+  ];
+  const fetchMock = vi.fn().mockResolvedValueOnce(new Response(JSON.stringify({ respuesta: "En Meta se reportan títulos de educación superior en dos instituciones.", datos: {
+    detalle_consulta: { lista_oferta: filas, territorio: { departamento: "Meta" }, identificacion_programas_confiable: false,
+      total_programas_unicos: null, total_titulos_distintos: 1,
+      distribucion_estado: [{ valor: "Activo", conteo: 1 }, { valor: "Inactivo", conteo: 1 }],
+      distribucion_nivel: [{ valor: "Universitaria", conteo: 2 }],
+    },
+    colecciones: [{ titulo: "Oferta de educación superior", filas, es_muestra: false }],
+  } }), { status: 200 })).mockResolvedValueOnce(new Response(JSON.stringify({ respuesta: "Arquitectura en Colombia." }), { status: 200 }));
+  vi.stubGlobal("fetch", fetchMock);
+  render(<App />);
+  preguntar("¿Qué títulos de educación superior se reportan en Meta?");
+  await screen.findByRole("table", { name: "Oferta de educación superior" });
+  expect(screen.getByText("Estado reportado")).toBeTruthy();
+  expect(screen.getByRole("columnheader", { name: "Nivel académico" })).toBeTruthy();
+  expect(screen.getByRole("columnheader", { name: "Estado" })).toBeTruthy();
+  expect(screen.queryByText("Programas únicos")).toBeNull();
+  expect(screen.queryByText(/Registros descargados/)).toBeNull();
+  fireEvent.change(screen.getByLabelText("Estado", { selector: "select" }), { target: { value: "Inactivo" } });
+  expect(screen.getByText("Universidad B")).toBeTruthy();
+  expect(screen.queryByText("Universidad A")).toBeNull();
+  fireEvent.change(screen.getByLabelText("¿Qué programa o título buscas?"), { target: { value: "Arquitectura" } });
+  fireEvent.change(screen.getByLabelText("Dónde buscar"), { target: { value: "nacional" } });
+  fireEvent.click(screen.getByRole("button", { name: "Buscar programa" }));
+  await screen.findByText("Arquitectura en Colombia.");
+  expect(JSON.parse(fetchMock.mock.calls[1][1].body)).toEqual({ pregunta: 'Programa "Arquitectura" en Colombia' });
 });
 
 function preguntar(texto = "Colegios en Soacha") {
@@ -230,14 +317,14 @@ it("muestra una lista de nombres y tipos, pagina todos los colegios y busca por 
   expect(screen.queryByText("2.025")).toBeNull();
   expect(screen.queryByText(/Detalle técnico/)).toBeNull();
   expect(screen.queryByText(/Ver muestra de registros/)).toBeNull();
-  expect(screen.getByText("Colegio 25")).toBeTruthy();
-  expect(screen.queryByText("Colegio 26")).toBeNull();
+  expect(screen.getByText("Colegio 05")).toBeTruthy();
+  expect(screen.queryByText("Colegio 06")).toBeNull();
   fireEvent.click(screen.getByRole("button", { name: "Siguiente" }));
-  expect(screen.getByText("Colegio 26")).toBeTruthy();
+  expect(screen.getByText("Colegio 06")).toBeTruthy();
   expect(screen.queryByText("Colegio 01")).toBeNull();
-  fireEvent.change(screen.getByLabelText("Buscar colegio por nombre"), { target: { value: "Colegio 61" } });
+  fireEvent.change(screen.getByLabelText("Buscar colegio por nombre o código DANE"), { target: { value: "Colegio 61" } });
   expect(screen.getByText("Colegio 61")).toBeTruthy();
-  expect(screen.queryByText("Colegio 26")).toBeNull();
+  expect(screen.queryByText("Colegio 06")).toBeNull();
   expect(screen.queryByRole("button", { name: "Siguiente" })).toBeNull();
   expect(fetchMock).toHaveBeenCalledTimes(1);
 });
@@ -260,7 +347,7 @@ it("responde a cuántos con el número y carga el directorio al elegir un tipo, 
   expect(screen.getByText("Colegio 01")).toBeTruthy();
   expect(screen.queryByText("Colegio 31")).toBeNull();
   fireEvent.click(screen.getByRole("button", { name: "Conocerlos todos" }));
-  expect(screen.getByText("Página 1 de 3")).toBeTruthy();
+  expect(screen.getByText("Página 1 de 13")).toBeTruthy();
   expect(fetchMock).toHaveBeenCalledTimes(2);
 });
 
@@ -304,4 +391,58 @@ it("acepta solo enlaces web y las dos formas de Retry-After", () => {
   expect(esperaDeReintento("3", 1000)).toBe(4000);
   const fecha = new Date(Date.now() + 10000).toUTCString();
   expect(esperaDeReintento(fecha)).toBe(Date.parse(fecha));
+});
+
+function respuestaIcetex(total: number | null = 25) {
+  return new Response(JSON.stringify({ pregunta: "ICETEX de pregrado en Meta en 2025", respuesta: "ICETEX reporta nuevos beneficiarios.", datos: {
+    detalle_consulta: { tipo_credito: "otorgados", visualizacion_icetex: {
+      unidad: "Nuevos beneficiarios de crédito", explicacion: "Suma los beneficiarios reportados; no son filas descargadas.", territorio: "Meta", anio: 2025, total,
+      cobertura_disponible: true, serie_anual: Array.from({ length: 11 }, (_, i) => ({ anio: 2015 + i, cantidad: i * 10 })),
+      distribuciones: [
+        { clave: "nivel_de_formacion", titulo: "Nivel de formación", nota: "Nivel reportado.", permite_grafico: true, filas: Array.from({ length: 7 }, (_, i) => ({ categoria: `Nivel ${i + 1}`, cantidad: i === 0 ? 0 : i })) },
+        { clave: "rango_del_valor_total", titulo: "Rango de desembolso", nota: "Códigos de rango, no montos exactos en pesos.", permite_grafico: false, filas: [{ categoria: "I", cantidad: 25 }] },
+      ],
+    } },
+  } }), { status: 200 });
+}
+
+it("presenta ICETEX con unidades precisas, gráficos y tablas paginadas sin confundir rangos con dinero", async () => {
+  vi.stubGlobal("fetch", vi.fn().mockResolvedValue(respuestaIcetex()));
+  render(<App />);
+  preguntar("ICETEX en Meta");
+  await screen.findByRole("img", { name: /Nivel de formación/ });
+  expect(screen.queryByText("Créditos o beneficiarios (aprox.)")).toBeNull();
+  expect(screen.queryByText("Registros de ICETEX")).toBeNull();
+  expect(screen.getByText("2025", { selector: "dd" })).toBeTruthy();
+  expect(screen.queryByText("2.025")).toBeNull();
+  fireEvent.click(screen.getByRole("button", { name: "Tabla" }));
+  expect(screen.getByRole("table", { name: "ICETEX: Nivel de formación" })).toBeTruthy();
+  expect(screen.getByText("Nivel 5")).toBeTruthy();
+  expect(screen.queryByText("Nivel 6")).toBeNull();
+  expect(screen.getByText("0", { selector: "td" })).toBeTruthy();
+  fireEvent.click(screen.getByRole("button", { name: "Siguiente" }));
+  expect(screen.getByText("Nivel 7")).toBeTruthy();
+  fireEvent.change(screen.getByLabelText("Ver cifras por"), { target: { value: "rango_del_valor_total" } });
+  expect(screen.getByRole("table", { name: "ICETEX: Rango de desembolso" })).toBeTruthy();
+  expect(screen.queryByRole("button", { name: "Gráfico" })).toBeNull();
+  expect(screen.getByText(/Códigos de rango, no montos exactos/)).toBeTruthy();
+  fireEvent.change(screen.getByLabelText("Ver cifras por"), { target: { value: "serie_anual" } });
+  fireEvent.change(screen.getByLabelText("Ir a la página"), { target: { value: "3" } });
+  expect(screen.getByText("2025", { selector: "button" })).toBeTruthy();
+});
+
+it("conserva el filtro al cambiar el año de ICETEX y distingue total cero de dato ausente", async () => {
+  const fetchMock = vi.fn().mockResolvedValueOnce(respuestaIcetex(0))
+    .mockResolvedValueOnce(new Response(JSON.stringify({ respuesta: "Consulta de 2023." }), { status: 200 }));
+  vi.stubGlobal("fetch", fetchMock);
+  render(<App />);
+  preguntar("ICETEX de pregrado en Meta en 2025");
+  await screen.findByText("ICETEX en cifras");
+  expect(screen.getByText("0", { selector: "dd" })).toBeTruthy();
+  fireEvent.change(screen.getByLabelText("Año de ICETEX"), { target: { value: "2023" } });
+  await screen.findByText("Consulta de 2023.");
+  const texto = JSON.parse(fetchMock.mock.calls[1][1].body).pregunta;
+  expect(texto).toContain("pregrado");
+  expect(texto).toContain("2023");
+  expect(texto).not.toContain("2025");
 });

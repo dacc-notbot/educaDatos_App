@@ -169,5 +169,6 @@ def test_fuente_programas_inconsistente_no_inventa_conteos(monkeypatch):
     assert resultado["datos"]["total_programas_unicos"] is None
     assert resultado["datos"]["total_titulos_distintos"] == 1
     assert resultado["datos"]["muestra_programas"][0]["titulo_obtenido"] == "PSICÓLOGO"
-    assert "inconsistencia" in resultado["respuesta_corta"]
+    assert "inconsistencia" not in resultado["respuesta_corta"]
+    assert "títulos" in resultado["respuesta_corta"]
     assert any("inconsistencia" in mensaje for mensaje in resultado["limitaciones"])

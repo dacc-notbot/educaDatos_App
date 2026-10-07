@@ -2,6 +2,8 @@
 
 from collections import deque
 from typing import Any, Dict, Iterable, List, Optional
+import re
+from services.presentacion_service import construir_colecciones, construir_resumenes_icetex
 
 
 def _textos(valor: Any) -> List[str]:
@@ -71,9 +73,12 @@ def _respuesta_ciudadana(resultado: Dict[str, Any]) -> Dict[str, Any]:
 
 
 def _adaptar(resultado: Dict[str, Any], pregunta: Optional[str], datos: Dict[str, Any], respuesta: Optional[str] = None) -> Dict[str, Any]:
+    datos["colecciones"] = construir_colecciones(_fragmentos(resultado))
+    datos["resumenes_icetex"] = construir_resumenes_icetex(_fragmentos(resultado))
     ciudadana = _respuesta_ciudadana(resultado)
     texto = respuesta or ciudadana.get("respuesta_corta") or resultado.get("respuesta") or "Consulta procesada por EducaDatos."
     hallazgos = _textos(ciudadana.get("hallazgos_principales") or ciudadana.get("hallazgos_integrados"))
+    hallazgos = [h for h in hallazgos if not re.search(r"registros descargados|filtros locales|se filtr[oó] el dataset|l[ií]mite.*consulta|columna.*detectada", h, re.I)]
     if hallazgos:
         texto += "\n\nHallazgos principales:\n" + "\n".join(f"- {hallazgo}" for hallazgo in hallazgos[:8])
     fuentes = extraer_fuentes(resultado)

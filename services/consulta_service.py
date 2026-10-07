@@ -1,3 +1,4 @@
+import re
 from typing import Any, Dict, Optional, Tuple, List
 
 from config import DEFAULT_ANALYTIC_LIMIT, DEFAULT_LIMIT, MAX_LIMIT, MIN_LIMIT_MUNICIPAL, MIN_LIMIT_DEPARTAMENTAL
@@ -22,7 +23,11 @@ from services.establecimientos_service import consultar_establecimientos_educati
 from services.programas_service import consultar_programas_superior_service
 from services.bachilleres_service import consultar_bachilleres_service
 from services.icetex_service import consultar_icetex_service
+from services.estadisticas_icetex import extraer_filtros_icetex, dimension_solicitada
 from services.diagnostico_service import diagnostico_territorial_educativo_service
+from services.orientacion_service import orientar, requiere_orientacion
+from services.codigo_dane_service import consultar_codigo_dane_service, extraer_busqueda_dane
+from services.busqueda_programas import extraer_nombre_programa, nombre_posible
 
 
 # ============================================================
@@ -61,6 +66,13 @@ def contiene_alguna(texto: str, palabras: List[str]) -> bool:
             return True
 
     return False
+
+
+def ambito_nacional(pregunta: str) -> bool:
+    texto = normalizar_texto(pregunta)
+    # Colombia también es un municipio del Huila. El ámbito nacional explícito
+    # no debe resolverse como ese municipio, salvo que se indique el Huila.
+    return bool(re.search(r"\b(?:en colombia|toda colombia|todo el pais|nivel nacional|a nivel pais|nacional)\b", texto)) and not bool(re.search(r"\b(?:huila|municipio (?:de )?colombia)\b", texto))
 
 
 def numero_seguro(valor: Any, defecto: int = 0) -> int:
@@ -249,6 +261,35 @@ def clasificar_intencion(pregunta: str) -> Dict[str, Any]:
         }
 
     # --------------------------------------------------------
+    # ICETEX
+    # --------------------------------------------------------
+    if any(palabra in p for palabra in [
+        "icetex",
+        "credito educativo",
+        "crédito educativo",
+        "creditos educativos",
+        "créditos educativos",
+        "financiacion",
+        "financiación",
+        "prestamo educativo",
+        "préstamo educativo",
+        "renovacion credito",
+        "renovación crédito",
+    ]):
+        if "renov" in p:
+            return {
+                "dataset_key": "icetex_renovados",
+                "intencion": "consultar_creditos_icetex_renovados",
+                "explicacion": "La pregunta consulta créditos ICETEX renovados.",
+            }
+
+        return {
+            "dataset_key": "icetex_otorgados",
+            "intencion": "consultar_creditos_icetex_otorgados",
+            "explicacion": "La pregunta consulta créditos ICETEX otorgados.",
+        }
+
+    # --------------------------------------------------------
     # Establecimientos educativos
     # --------------------------------------------------------
     if any(palabra in p for palabra in [
@@ -338,35 +379,6 @@ def clasificar_intencion(pregunta: str) -> Dict[str, Any]:
             "explicacion": (
                 "La pregunta está relacionada con bachilleres o egresados de educación media."
             ),
-        }
-
-    # --------------------------------------------------------
-    # ICETEX
-    # --------------------------------------------------------
-    if any(palabra in p for palabra in [
-        "icetex",
-        "credito educativo",
-        "crédito educativo",
-        "creditos educativos",
-        "créditos educativos",
-        "financiacion",
-        "financiación",
-        "prestamo educativo",
-        "préstamo educativo",
-        "renovacion credito",
-        "renovación crédito",
-    ]):
-        if "renov" in p:
-            return {
-                "dataset_key": "icetex_renovados",
-                "intencion": "consultar_creditos_icetex_renovados",
-                "explicacion": "La pregunta consulta créditos ICETEX renovados.",
-            }
-
-        return {
-            "dataset_key": "icetex_otorgados",
-            "intencion": "consultar_creditos_icetex_otorgados",
-            "explicacion": "La pregunta consulta créditos ICETEX otorgados.",
         }
 
     # --------------------------------------------------------
@@ -845,6 +857,19 @@ def resolver_consulta_ciudadana(
     4. Enruta a servicios especializados.
     5. Devuelve una respuesta trazable, ciudadana y fiel a los datos.
     """
+    if requiere_orientacion(pregunta):
+        return orientar(pregunta)
+    if "codigo dane" in normalizar_texto(pregunta):
+        departamento, municipio = detectar_territorio(pregunta)
+        if ambito_nacional(pregunta):
+            departamento, municipio = None, None
+        nombre, codigo = extraer_busqueda_dane(pregunta, departamento, municipio)
+        if not nombre and not codigo:
+            return orientar(pregunta, 'Para consultar el código DANE, escribe el nombre del colegio; por ejemplo: Código DANE del colegio "Academia Militar José Antonio Páez" en Villavicencio.')
+        resultado = consultar_codigo_dane_service(nombre, codigo, departamento, municipio)
+        return {"pregunta_recibida": pregunta, "intencion_detectada": "consultar_codigo_dane",
+                "dataset_usado": "establecimientos_educativos", "resultados": resultado,
+                "respuesta_ciudadana": {**resultado, "resultados_muestra": resultado["datos"]["coincidencias_dane"]}}
     if es_saludo_o_mensaje_general(pregunta):
         return {
             "pregunta_recibida": pregunta,
@@ -884,7 +909,15 @@ def resolver_consulta_ciudadana(
         }
 
     clasificacion = clasificar_intencion(pregunta)
+    if clasificacion["intencion"] == "consultar_estadisticas_municipales" and (nombre_posible(pregunta) or contiene_alguna(pregunta, ["programa", "titulo", "carrera"])) and not contiene_alguna(pregunta, ["educacion", "educativo", "cobertura", "matricula", "indicador", "estadistica", "desercion", "repitencia", "permanencia"]):
+        clasificacion = {"intencion": "buscar_programas_educacion_superior", "dataset_key": "programas_superior", "explicacion": "Búsqueda de título o programa por su nombre."}
+    if clasificacion["intencion"] == "consultar_estadisticas_municipales" and not contiene_alguna(
+        pregunta, ["educacion", "educativo", "cobertura", "matricula", "desercion", "repitencia", "permanencia", "indicadores", "estadisticas"]
+    ):
+        return orientar(pregunta)
     departamento, municipio = detectar_territorio(pregunta)
+    if ambito_nacional(pregunta):
+        departamento, municipio = None, None
 
     limit_analitico = resolver_limite_consulta(
         departamento=departamento,
@@ -1382,14 +1415,7 @@ def resolver_consulta_ciudadana(
     # Programas de educación superior
     # --------------------------------------------------------
     if clasificacion.get("intencion") == "buscar_programas_educacion_superior":
-        texto_busqueda = detectar_texto_especifico(
-            pregunta=pregunta,
-            municipio=municipio,
-            departamento=departamento,
-        )
-
-        if es_texto_generico_educativo(texto_busqueda):
-            texto_busqueda = None
+        texto_busqueda = extraer_nombre_programa(pregunta, departamento, municipio)
 
         if not departamento and not municipio and not texto_busqueda:
             return respuesta_falta_territorio(
@@ -1413,6 +1439,7 @@ def resolver_consulta_ciudadana(
             municipio=municipio,
             texto=texto_busqueda,
             limit=limit_analitico,
+            **({"estado": "Inactivo" if "inactiv" in normalizar_texto(pregunta) else "Activo"} if re.search(r"(?:programas?|titulos?|carreras?)\s+(?:in)?activ[oa]s?", normalizar_texto(pregunta)) else {}),
         )
 
         return {
@@ -1505,22 +1532,22 @@ def resolver_consulta_ciudadana(
         "consultar_creditos_icetex_otorgados",
         "consultar_creditos_icetex_renovados",
     ]:
-        if not departamento and not municipio:
-            return respuesta_falta_territorio(
-                pregunta=pregunta,
-                intencion=clasificacion["intencion"],
-                explicacion=clasificacion["explicacion"],
-                dataset_usado=clasificacion["dataset_key"],
-                respuesta_corta=(
-                    "Puedo ayudarte a consultar créditos ICETEX, pero necesito identificar "
-                    "al menos un municipio o departamento."
-                ),
-                sugerencias=[
-                    "¿Qué créditos ICETEX hay en Meta?",
-                    "¿Qué créditos ICETEX renovados aparecen en Cundinamarca?",
-                    "¿Cómo se relacionan bachilleres, educación superior e ICETEX en Meta?",
-                ],
-            )
+        if "renov" in normalizar_texto(pregunta) and re.search(r"\b(?:otorgados?|nuevos?|nuevas?)\b", normalizar_texto(pregunta)):
+            year = re.search(r"\b(?:19|20)\d{2}\b", pregunta)
+            partes = [consultar_icetex_service(departamento=departamento, municipio=municipio,
+                      tipo=tipo, limit=limit_analitico, anio=int(year.group()) if year else None,
+                      filtros=extraer_filtros_icetex(pregunta)) for tipo in ("otorgados", "renovados")]
+            for parte in partes:
+                parte["datos"]["visualizacion_icetex"]["dimension_preferida"] = dimension_solicitada(pregunta, parte["datos"]["tipo_credito"])
+            corto = " ".join(p["respuesta_corta"] for p in partes) + " Las dos medidas se presentan por separado y no se suman."
+            resultado = {"respuesta_corta": corto, "hallazgos_principales": [],
+                         "datos": {"comparacion_icetex": [p["datos"] for p in partes]},
+                         "fuentes_usadas": [f for p in partes for f in p["fuentes_usadas"]],
+                         "limitaciones": list(dict.fromkeys(l for p in partes for l in p["limitaciones"])),
+                         "sugerencias_de_siguiente_pregunta": partes[0]["sugerencias_de_siguiente_pregunta"]}
+            return {"pregunta_recibida": pregunta, "intencion_detectada": "comparar_icetex",
+                    "dataset_usado": "icetex_otorgados,icetex_renovados", "total_resultados": None,
+                    "resultados": resultado, "respuesta_ciudadana": resultado}
 
         tipo_icetex = (
             "renovados"
@@ -1533,13 +1560,19 @@ def resolver_consulta_ciudadana(
             municipio=municipio,
             tipo=tipo_icetex,
             limit=limit_analitico,
+            **({"filtros": extraer_filtros_icetex(pregunta)} if extraer_filtros_icetex(pregunta) else {}),
+            **({"anio": int(re.search(r"\b(?:19|20)\d{2}\b", pregunta).group())} if re.search(r"\b(?:19|20)\d{2}\b", pregunta) else {}),
         )
 
-        total_resultados = (
-            resultado_icetex["datos"].get("total_creditos_o_beneficiarios_aproximado")
-            or resultado_icetex["datos"].get("total_registros_vigencia")
-            or 0
-        )
+        if isinstance(resultado_icetex["datos"].get("visualizacion_icetex"), dict):
+            resultado_icetex["datos"]["visualizacion_icetex"]["dimension_preferida"] = dimension_solicitada(pregunta, tipo_icetex)
+
+        if re.search(r"\b(?:pesos|monto|montos|dinero|desembolsado|desembolso total)\b", normalizar_texto(pregunta)):
+            resultado_icetex["respuesta_corta"] = "La fuente no informa montos exactos en pesos; solo publica rangos de desembolso. " + resultado_icetex["respuesta_corta"]
+        if re.search(r"\bque universidades|\bnombres? de (?:universidades|instituciones)\b", normalizar_texto(pregunta)):
+            resultado_icetex["respuesta_corta"] = "La fuente de ICETEX no identifica universidades por nombre; permite explorar su sector. " + resultado_icetex["respuesta_corta"]
+
+        total_resultados = resultado_icetex["datos"].get("total_creditos_o_beneficiarios_aproximado")
 
         return {
             "pregunta_recibida": pregunta,

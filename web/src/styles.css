@@ -611,6 +611,179 @@ footer svg {
   align-items: center;
   gap: 8px;
 }
+.panel-registros {
+  height: 360px;
+  width: 100%;
+  overflow: hidden;
+  border-bottom: 1px solid var(--borde);
+}
+.panel-registros .lista-encabezado {
+  height: 36px;
+  padding: 7px 0;
+}
+.panel-registros .lista-colegios li {
+  height: 64px;
+  padding: 10px 0;
+  align-items: center;
+}
+.nombre-colegio,
+.sugerencia-pregunta {
+  border: 0;
+  background: transparent;
+  color: var(--acento);
+  text-align: left;
+  padding: 0;
+  line-height: 1.5;
+  font: inherit;
+}
+.nombre-colegio,
+.celda-datos {
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+  overflow-wrap: anywhere;
+}
+.nombre-colegio {
+  width: 100%;
+  text-decoration: underline;
+  text-decoration-color: var(--borde);
+  text-underline-offset: 3px;
+}
+.nombre-colegio:hover,
+.sugerencia-pregunta:hover {
+  text-decoration: underline;
+}
+.ayuda-listado {
+  font-size: 11px;
+  color: var(--muted);
+}
+.salto-pagina {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex-basis: 100%;
+}
+.salto-pagina input {
+  width: 75px;
+  border: 1px solid var(--borde);
+  border-radius: 7px;
+  padding: 7px;
+}
+.tabla-datos select {
+  display: block;
+  max-width: 100%;
+  width: 100%;
+  margin: 7px 0;
+  border: 1px solid var(--borde);
+  border-radius: 9px;
+  background: #fcfcfa;
+  padding: 10px;
+  color: var(--acento);
+  font: inherit;
+}
+.panel-registros table {
+  table-layout: fixed;
+}
+.panel-registros th,
+.panel-registros td {
+  min-width: 0;
+  max-width: none;
+  vertical-align: middle;
+  padding: 6px;
+}
+.panel-registros thead tr {
+  height: 36px;
+}
+.panel-registros thead th {
+  padding: 2px 6px;
+  line-height: 1.4;
+}
+.panel-registros tbody tr {
+  height: 64px;
+}
+.detalle-registro {
+  width: min(520px, calc(100% - 32px));
+  max-height: 85vh;
+  overflow-y: auto;
+  border: 1px solid var(--borde);
+  border-radius: 18px;
+  padding: 25px;
+  background: #fff;
+  color: #303234;
+}
+.detalle-registro::backdrop {
+  background: #30323466;
+}
+.detalle-registro dl > div {
+  margin: 14px 0;
+}
+.detalle-registro dt {
+  font-size: 12px;
+  color: var(--muted);
+  text-transform: capitalize;
+}
+.detalle-registro dd {
+  margin: 6px 0;
+  overflow-wrap: anywhere;
+  font-size: 14px;
+}
+.distribuciones-oferta {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+  gap: 18px;
+}
+.distribuciones-oferta > div {
+  padding: 17px;
+  border-radius: 10px;
+  background: #f4f5f0;
+}
+.distribuciones-oferta dl {
+  margin: 0;
+  font-size: 12px;
+}
+.distribuciones-oferta dl > div {
+  display: flex;
+  justify-content: space-between;
+  gap: 15px;
+  margin-top: 9px;
+}
+.distribuciones-oferta dd {
+  margin: 0;
+  font-weight: 650;
+}
+.busqueda-programa,
+.filtros-oferta {
+  display: flex;
+  gap: 14px;
+  flex-wrap: wrap;
+  margin: 20px 0;
+  align-items: end;
+  font-size: 12px;
+}
+.busqueda-programa .buscar-colegio,
+.filtros-oferta .buscar-colegio {
+  flex: 1 1 180px;
+}
+.busqueda-programa select,
+.filtros-oferta select {
+  display: block;
+  width: 100%;
+  margin-top: 7px;
+  padding: 11px;
+  border: 1px solid var(--borde);
+  border-radius: 9px;
+  background: #fcfcfa;
+  color: var(--acento);
+  font: inherit;
+}
+.advertencias summary {
+  cursor: pointer;
+  font-weight: 650;
+}
+.advertencias details[open] summary {
+  margin-bottom: 12px;
+}
 .filtros-colegios button,
 .paginas-colegios button {
   padding: 9px 13px;
@@ -877,3 +1050,17 @@ th {
     scroll-behavior: auto !important;
   }
 }
+
+.icetex-resumen .indicadores dd { overflow-wrap: anywhere; }
+.icetex-resumen select { display: block; width: 100%; min-width: 0; margin-top: 7px; padding: 10px; border: 1px solid var(--borde); border-radius: 9px; background: #fcfcfa; }
+.icetex-resumen .panel-registros { margin-top: 9px; }
+.icetex-resumen th { overflow-wrap: anywhere; font-size: 11px; padding: 6px; height: 36px; }
+.icetex-resumen td { height: 64px; padding: 8px 6px; }
+.icetex-resumen table { table-layout: fixed; width: 100%; }
+.icetex-resumen th:first-child { width: 48%; }
+.unidad-grafico { height: 36px; margin: 0; padding: 8px 0; color: var(--muted); }
+.fila-grafico { display: grid; grid-template-columns: minmax(0, 1.4fr) minmax(0, 1fr) minmax(56px, auto); align-items: center; gap: 10px; height: 64px; border-bottom: 1px solid var(--borde); }
+.nombre-categoria { overflow-wrap: anywhere; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; }
+.barra-fondo { height: 15px; background: #e6e5e0; border-radius: 4px; }
+.barra-fondo span { display: block; height: 100%; background: var(--acento); border-radius: 4px; }
+.fila-grafico strong { text-align: right; font-variant-numeric: tabular-nums; }

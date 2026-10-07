@@ -106,6 +106,61 @@ Estos pasos ejecutan el backend en tu propio equipo. No requieren Cloud Run.
 
 ## Consultas disponibles
 
+### Código DANE y orientación
+
+`POST /colegios/codigo-dane` recibe un nombre o código, y opcionalmente departamento
+y municipio. Sin territorio busca a nivel nacional, siempre en la vigencia más
+reciente del MEN. La misma consulta está disponible por `/chat`, por ejemplo:
+
+```json
+{"pregunta":"Código DANE del colegio \"Academia Militar José Antonio Páez\" en Villavicencio"}
+```
+
+`ConsultaDaneRequest` valida longitudes, nombres y códigos antes de consultar.
+Las búsquedas por nombre usan filtros SoQL construidos con identificadores fijos,
+valores escapados y sustitución de tildes. Si hay varios colegios con el mismo
+nombre, muestra municipio y departamento sin elegir arbitrariamente. Si falta
+el código no lo inventa. El código identifica un establecimiento y no necesariamente
+cada una de sus sedes.
+
+`services/orientacion_service.py` identifica peticiones de opinión, argumentación,
+ideología y causalidad mediante reglas explícitas. Responde con el alcance de
+EducaDatos y preguntas informativas sugeridas, sin descargar datos para justificar
+opiniones. Las explicaciones descriptivas de datos y los indicadores conservan
+sus rutas. No es un clasificador semántico universal: los nombres breves que no
+son indicadores pueden tratarse como posibles títulos para buscar a nivel nacional.
+
+### Presentación ciudadana y oferta de educación superior
+
+`services/presentacion_service.py` prepara colecciones con `titulo`, `filas` y
+`es_muestra`, conservando las evidencias y campos técnicos en el contrato API.
+La interfaz usa cinco filas por página y un panel fijo. Los códigos y años nunca
+se formatean como cantidades. Los resúmenes o muestras siguen identificados como
+tales, incluso cuando tienen varias páginas.
+
+El servicio de educación superior busca en nombres fiables, títulos otorgados
+e instituciones. Conserva el nombre completo consultado, compara palabras sin
+tildes y relaciona nombres habituales (por ejemplo, Arquitectura → ARQUITECTO e
+Ingeniería → INGENIERO) con los títulos publicados. No usa coincidencias del área
+general de conocimiento para afirmar que una institución ofrece un programa
+específico. Sin territorio la búsqueda es nacional; por ciudad/departamento usa
+los campos territoriales de la oferta reportada. La ruta estructurada admite
+`estado: "Activo"` o `"Inactivo"`.
+
+`lista_oferta` conserva títulos, institución, estado, nivel, territorio y modalidad.
+La deduplicación usa esos campos juntos: el mismo título en otra institución,
+ciudad, nivel, modalidad o estado conserva su entrada. `muestra_programas` continúa
+como campo de compatibilidad, pero no limita el nuevo listado a diez filas.
+Si la descarga alcanza su límite, la respuesta marca que puede ser parcial.
+
+La fuente upr9-nkiz sigue teniendo nombres y códigos de programas inconsistentes.
+El conteo de programas únicos permanece en null; la respuesta principal se centra
+en los títulos e instituciones y las distribuciones de estados/niveles. La advertencia
+no se elimina ni se convierte un título en un identificador de programa. El estado
+es el reportado por la fuente y no certifica aperturas de convocatoria o disponibilidad
+actual de matrículas. Una institución de educación superior no necesariamente es
+una universidad; se conserva el nombre y tipo de registro publicados.
+
 ### Colegios: última vigencia y directorio completo
 
 `services/directorio_colegios.py` consulta `max(a_o)` en el dataset oficial del MEN
@@ -144,7 +199,7 @@ Todas estas rutas aceptan JSON mediante **POST** y devuelven el contrato común:
 | `/colegios` | Departamento o municipio; `sector` y `modo_respuesta` opcionales. |
 | `/programas-superior` | Departamento, municipio o búsqueda por `texto`. |
 | `/bachilleres` | Departamento o municipio. |
-| `/icetex` | Departamento o municipio; `tipo`: `otorgados` o `renovados`. |
+| `/icetex` | Departamento opcional (nacional por defecto); `tipo`, `anio` y `filtros` opcionales. |
 | `/transito-educativo` | Departamento o municipio. |
 | `/diagnostico-municipal` | Departamento o municipio; también permite diagnóstico departamental. |
 | `/cluster-municipal` | Departamento y municipio. |
@@ -204,3 +259,47 @@ de error con HTTP 200 en una prueba satisfactoria.
 
 Primero comprueba Python y la web local. Después podrás seguir
 [la guía de publicación](PUBLICAR.md) para llevarlos a un servicio público.
+
+## Precisión de las estadísticas de ICETEX
+
+`services/estadisticas_icetex.py` usa los campos verificados de `26bn-e42j` y
+`nvcf-b8a3`. Calcula sumas mediante SoQL en la fuente completa, agrupadas por año y
+por cada dimensión; no estima beneficiarios contando las filas de una muestra.
+Otorgados suma `numero_de_nuevos_beneficiarios`; renovados suma
+`numero_de_renovaciones`. Se conserva el campo heredado
+`total_creditos_o_beneficiarios_aproximado` para compatibilidad, pero la presentación
+usa la unidad explícita de `visualizacion_icetex`. Un cero válido se mantiene;
+una cobertura no disponible devuelve `null`.
+
+Cada agregado comprueba cantidades enteras no negativas y que todos los registros
+del año tengan cantidad informada. Todas las distribuciones deben sumar el mismo
+total. Una discrepancia, un agregado truncado o una cantidad inválida produce
+error de fuente (502), sin publicar un total parcial. Máximo cuatro solicitudes
+concurrentes por análisis, utilizando la caché y TLS existentes. No se descarga
+el historial fila por fila; `limit` permanece como entrada compatible y no limita
+las sumas oficiales.
+
+La fuente permite **departamento de origen**, no ciudad ni institución por nombre.
+Una consulta municipal no se sustituye silenciosamente por el departamento.
+La palabra Colombia como ámbito nacional se distingue del municipio Colombia,
+Huila. Los códigos de rango de desembolso no tienen montos exactos disponibles
+para convertirlos en pesos. La fecha más reciente corresponde al reporte
+publicado y no certifica que el año esté completo.
+
+`POST /icetex` admite `anio` (1900–2100), `tipo` otorgados/renovados y `filtros` con
+claves cerradas: `nivel_de_formacion`, `modalidad_de_linea`, `modalidad_del_credito`,
+`sector_ies`, `sexo_al_nacer`, `estrato_socio_economico`,
+`categoria_del_municipio_de` y `rango_del_valor_total`. Valores escapados,
+identificadores fijos y estrato numérico validado evitan instrucciones SoQL
+provenientes de la entrada. El chat reconoce filtros frecuentes explícitos como
+pregrado, posgrado en Colombia, exterior, sexo, estrato, sector, destino del
+crédito, maestría y doctorado. No es una comprensión universal del lenguaje:
+si se nombran varios valores del mismo campo, se presenta la distribución sin
+elegir arbitrariamente uno de ellos.
+
+`visualizacion_icetex` incluye unidad, explicación, total, año, cobertura,
+serie anual y diez distribuciones con notas legibles. La comparación de otorgados
+y renovados utiliza `comparacion_icetex` y nunca suma sus unidades.
+`resumenes_icetex` conserva estos paneles en consultas integradas; sus lecturas
+usan nuevos beneficiarios y renovaciones, y no presentan cobertura municipal
+inexistente como datos encontrados.

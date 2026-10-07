@@ -311,6 +311,8 @@ def construir_lista_establecimientos(
         item = {
             "nombre_establecimiento": nombre or "Nombre no informado",
             "codigo_establecimiento": codigo,
+            "departamento": registro.get("departamento"),
+            "municipio": registro.get("municipio"),
             "sector": sector,
             "tipo": tipo,
         }

@@ -13,6 +13,9 @@ import {
   type Respuesta,
 } from "./api";
 import ListaColegios from "./ListaColegios";
+import TablaDatos from "./TablaDatos";
+import OfertaSuperior from "./OfertaSuperior";
+import ResumenIcetex from "./ResumenIcetex";
 
 const ejemplos = [
   {
@@ -85,9 +88,11 @@ function Icono({
   );
 }
 
-function Resultados({ resultado }: { resultado: Respuesta }) {
+function Resultados({ resultado, elegirPregunta, buscar }: { resultado: Respuesta; elegirPregunta: (pregunta: string) => void; buscar: (pregunta: string) => void }) {
   const detalle = resultado.datos.detalle_consulta as Registro | undefined;
   const esColegios = !!detalle && Array.isArray(detalle.lista_establecimientos);
+  const esIcetex = !!detalle?.visualizacion_icetex || Array.isArray(detalle?.comparacion_icetex);
+  const esSuperior = !!detalle && Array.isArray(detalle.lista_oferta);
   // La procedencia se lee en la página; los endpoints JSON son para la API.
   const fuentes = [...new Set(resultado.fuentes.filter((texto) =>
     !/^[a-z][a-z\d+.-]*:/i.test(texto.trim()),
@@ -98,32 +103,17 @@ function Resultados({ resultado }: { resultado: Respuesta }) {
     ["total_establecimientos_unicos", "Establecimientos"],
     ["total_instituciones_unicas", "Instituciones"],
     ["total_programas_unicos", "Programas únicos"],
+    ["total_titulos_distintos", "Títulos reportados"],
     ["total_bachilleres", "Bachilleres"],
     ["total_creditos", "Créditos"],
+    ["total_bachilleres_aproximado", "Bachilleres (aprox.)"],
+    ["total_creditos_o_beneficiarios_aproximado", "Créditos o beneficiarios (aprox.)"],
+    ["anio_usado", "Año de los datos"],
     ["vigencia_mas_reciente", "Año de los datos"],
   ];
-  const visibles = indicadores.filter(
-    ([clave]) => detalle && Object.hasOwn(detalle, clave),
+  const visibles = (esIcetex ? [] : indicadores).filter(
+    ([clave]) => detalle && Object.hasOwn(detalle, clave) && !(clave === "anio_usado" && Object.hasOwn(detalle, "vigencia_mas_reciente")) && !(clave === "total_programas_unicos" && detalle.identificacion_programas_confiable === false),
   );
-  const muestra = Array.isArray(resultado.datos.resultados_muestra)
-    ? resultado.datos.resultados_muestra
-        .filter(
-          (r): r is Registro =>
-            !!r && typeof r === "object" && !Array.isArray(r),
-        )
-        .slice(0, 10)
-    : [];
-  const columnas = [
-    ...new Set(
-      muestra.flatMap((fila) =>
-        Object.keys(fila).filter(
-          (k) =>
-            fila[k] == null ||
-            ["string", "number", "boolean"].includes(typeof fila[k]),
-        ),
-      ),
-    ),
-  ].slice(0, 6);
   const sugerencias = Array.isArray(
     resultado.datos.sugerencias_de_siguiente_pregunta,
   )
@@ -139,7 +129,8 @@ function Resultados({ resultado }: { resultado: Respuesta }) {
       </div>
       <h2 id="resultado-titulo">Esto encontramos</h2>
       <p className="pregunta-enviada">{resultado.pregunta}</p>
-      <p className="respuesta-texto">{esColegios ? resultado.resumen : resultado.respuesta}</p>
+      <p className="respuesta-texto">{resultado.resumen}</p>
+      {!esColegios && resultado.resumen !== resultado.respuesta && <details className="muestra"><summary>Ver hallazgos de la consulta</summary><p className="respuesta-texto">{resultado.respuesta}</p></details>}
       {visibles.length > 0 && (
         <dl className="indicadores">
           {visibles.map(([clave, label]) => (
@@ -151,54 +142,25 @@ function Resultados({ resultado }: { resultado: Respuesta }) {
         </dl>
       )}
       {esColegios && <ListaColegios detalle={detalle!} />}
+      {esSuperior && <OfertaSuperior detalle={detalle!} buscar={buscar} />}
       {resultado.advertencias.length > 0 && (
         <aside
           className="advertencias"
           aria-label="Advertencias sobre los datos"
         >
-          <h3>Para interpretar estos datos</h3>
+          <details><summary>Sobre esta información ({resultado.advertencias.length})</summary>
           <ul>
             {resultado.advertencias.map((texto, i) => (
               <li key={i}>{texto}</li>
             ))}
           </ul>
+          </details>
         </aside>
       )}
-      {!esColegios && muestra.length > 0 && columnas.length > 0 && (
-        <details className="muestra">
-          <summary>Ver muestra de registros ({muestra.length})</summary>
-          <p>
-            Esta muestra no representa necesariamente el total de registros de
-            la fuente.
-          </p>
-          <div
-            className="tabla-scroll"
-            tabIndex={0}
-            aria-label="Tabla de registros, desplazable horizontalmente"
-          >
-            <table>
-              <thead>
-                <tr>
-                  {columnas.map((col) => (
-                    <th key={col} scope="col">
-                      {col.replace(/_/g, " ")}
-                    </th>
-                  ))}
-                </tr>
-              </thead>
-              <tbody>
-                {muestra.map((fila, i) => (
-                  <tr key={i}>
-                    {columnas.map((col) => (
-                      <td key={col}>{mostrarValor(fila[col], col)}</td>
-                    ))}
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
-        </details>
-      )}
+      {esIcetex && <ResumenIcetex detalle={detalle!} buscar={buscar} pregunta={resultado.pregunta} />}
+      {!esIcetex && Array.isArray(resultado.datos.resumenes_icetex) && resultado.datos.resumenes_icetex.length > 0 && <ResumenIcetex
+        detalle={{ comparacion_icetex: resultado.datos.resumenes_icetex }} buscar={buscar} pregunta="ICETEX" />}
+      {!esColegios && !esIcetex && <TablaDatos datos={resultado.datos} />}
       {fuentes.length > 0 && (
         <div className="fuentes">
           <h3>De dónde viene esta información</h3>
@@ -212,7 +174,7 @@ function Resultados({ resultado }: { resultado: Respuesta }) {
           <h3>Puedes seguir explorando</h3>
           <ul>
             {sugerencias.slice(0, 3).map((s, i) => (
-              <li key={i}>{s}</li>
+              <li key={i}><button type="button" className="sugerencia-pregunta" onClick={() => elegirPregunta(s)}>{s}</button></li>
             ))}
           </ul>
         </div>
@@ -254,19 +216,23 @@ export default function App() {
 
   async function enviar(event: FormEvent) {
     event.preventDefault();
-    if (pendiente || espera > 0 || !pregunta.trim()) return;
-    if (pregunta.trim().length > 2000) {
+    await ejecutarConsulta(pregunta);
+  }
+  async function ejecutarConsulta(texto: string) {
+    if (pendiente || espera > 0 || !texto.trim()) return;
+    if (texto.trim().length > 2000) {
       setError("Tu pregunta debe tener hasta 2000 caracteres.");
       return;
     }
     setPendiente(true);
+    setPregunta(texto);
     setError("");
     setResultado(null);
     const controller = new AbortController();
     solicitud.current = controller;
     const timer = window.setTimeout(() => controller.abort(), 180000);
     try {
-      const respuesta = await consultar(pregunta.trim(), controller.signal);
+      const respuesta = await consultar(texto.trim(), controller.signal);
       if (activo.current) setResultado(respuesta);
     } catch (e) {
       if (activo.current) {
@@ -425,7 +391,7 @@ export default function App() {
             </p>
           )}
         </section>
-        {resultado && <Resultados resultado={resultado} />}
+        {resultado && <Resultados resultado={resultado} elegirPregunta={usarEjemplo} buscar={ejecutarConsulta} />}
         <section className="ejemplos" aria-labelledby="ejemplos-titulo">
           <div className="examples-heading">
             <h2 id="ejemplos-titulo">Una idea para comenzar</h2>

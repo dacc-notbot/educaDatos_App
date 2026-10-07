@@ -77,6 +77,7 @@ class ConsultaColegiosRequest(TerritorioRequest):
 
 
 class ConsultaProgramasRequest(ModeloEntrada):
+    estado: Optional[Literal["Activo", "Inactivo"]] = None
     departamento: Optional[str] = Field(
         None,
         min_length=1,
@@ -102,7 +103,41 @@ class ConsultaProgramasRequest(ModeloEntrada):
     )
 
 
-class ConsultaIcetexRequest(TerritorioRequest):
+class ConsultaDaneRequest(ModeloEntrada):
+    nombre: Optional[str] = Field(None, min_length=2, max_length=200)
+    codigo: Optional[str] = Field(None, pattern=r"^[0-9]{1,15}$")
+    departamento: Optional[str] = Field(None, min_length=1, max_length=120)
+    municipio: Optional[str] = Field(None, min_length=1, max_length=120)
+
+    @field_validator("nombre")
+    @classmethod
+    def validar_nombre(cls, valor):
+        if valor is not None and len(normalizar_texto(valor)) < 2:
+            raise ValueError("Escribe al menos dos letras o números del nombre del colegio.")
+        return valor
+
+    @model_validator(mode="after")
+    def validar_busqueda(self):
+        if not self.nombre and not self.codigo:
+            raise ValueError("Indica el nombre del colegio o el código DANE.")
+        return self
+
+
+class ConsultaIcetexRequest(ModeloEntrada):
+    departamento: Optional[str] = Field(None, min_length=1, max_length=120)
+    municipio: Optional[str] = Field(None, min_length=1, max_length=120)
+    limit: int = Field(DEFAULT_ANALYTIC_LIMIT, ge=1, le=MAX_LIMIT)
+    anio: Optional[int] = Field(None, ge=1900, le=2100)
+    filtros: Dict[Literal["nivel_de_formacion", "modalidad_de_linea", "modalidad_del_credito", "sector_ies", "sexo_al_nacer", "estrato_socio_economico", "categoria_del_municipio_de", "rango_del_valor_total"], str] = Field(default_factory=dict)
+
+    @field_validator("filtros")
+    @classmethod
+    def validar_filtros(cls, filtros):
+        if any(not v.strip() or len(v) > 120 for v in filtros.values()):
+            raise ValueError("Indica valores de filtro de entre 1 y 120 caracteres.")
+        if "estrato_socio_economico" in filtros and filtros["estrato_socio_economico"] not in list("0123456"):
+            raise ValueError("Indica un estrato del 0 al 6.")
+        return filtros
     tipo: Literal["otorgados", "renovados"] = Field(
         "otorgados",
         description="Tipo de créditos ICETEX: otorgados o renovados."

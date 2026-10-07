@@ -4,7 +4,7 @@ from typing import Any, Dict, List, Optional
 
 from config import MAX_LIMIT
 from services.socrata_service import consultar_dataset
-from utils.normalizacion import valor_a_numero
+from utils.normalizacion import normalizar_texto, valor_a_numero
 
 DATASET = "establecimientos_educativos"
 TAMANO_PAGINA = 5000
@@ -18,7 +18,17 @@ def literal_soql(texto: str) -> str:
 def consultar_directorio_vigente(
     departamento: Optional[str],
     municipio: Optional[str],
+    nombre: Optional[str] = None,
+    codigo: Optional[str] = None,
 ) -> tuple[List[Dict[str, Any]], Optional[int]]:
+    if codigo and (not codigo.isdigit() or not 1 <= len(codigo) <= 15):
+        raise ValueError(
+            "El código DANE debe contener únicamente números, hasta 15 dígitos."
+        )
+    if nombre and len(normalizar_texto(nombre)) < 2:
+        raise ValueError(
+            "Escribe al menos dos letras o números del nombre del colegio."
+        )
     vigente = consultar_dataset(
         DATASET, limit=1, params_extra={"$select": "max(a_o) as vigencia"}
     )
@@ -33,6 +43,14 @@ def consultar_directorio_vigente(
         condiciones.append(f"upper(departamento) = {literal_soql(departamento)}")
     if municipio:
         condiciones.append(f"upper(municipio) = {literal_soql(municipio)}")
+    if codigo:
+        condiciones.append(f"codigo_dane = {int(codigo)}")
+    if nombre:
+        columna = "upper(nombre_establecimiento)"
+        for original, simple in zip("ÁÉÍÓÚÜÑ", "AEIOUUN"):
+            columna = f"replace({columna}, '{original}', '{simple}')"
+        for palabra in normalizar_texto(nombre).split():
+            condiciones.append(f"contains({columna}, {literal_soql(palabra)})")
     where = " AND ".join(condiciones)
     conteo = consultar_dataset(
         DATASET, limit=1, params_extra={"$select": "count(*) as total", "$where": where}
