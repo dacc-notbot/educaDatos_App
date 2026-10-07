@@ -82,11 +82,9 @@ describe("Consulta ciudadana", () => {
     expect(
       screen.getByText("La fuente no identifica programas únicos."),
     ).toBeTruthy();
-    expect(
-      screen
-        .getByRole("link", { name: "Consultar fuente oficial" })
-        .getAttribute("href"),
-    ).toContain("datos.gov.co");
+    expect(screen.getByText("Ministerio de Educación")).toBeTruthy();
+    expect(screen.queryByRole("link", { name: "Consultar fuente oficial" })).toBeNull();
+    expect(document.querySelector('a[href$="cfw5-qzt5.json"]')).toBeNull();
     expect(document.querySelector('a[href^="javascript:"]')).toBeNull();
     expect(
       JSON.parse(
@@ -199,6 +197,103 @@ it("distingue cero de dato no disponible", () => {
   expect(mostrarValor(null)).toBe("No disponible");
   expect(mostrarValor(0)).toBe("0");
   expect(mostrarValor(Number.NaN)).toBe("No disponible");
+  expect(mostrarValor(2025, "vigencia_mas_reciente")).toBe("2025");
+  expect(mostrarValor("2025.0", "a_o")).toBe("2025");
+  expect(mostrarValor(12525)).toBe("12.525");
+});
+
+const lista = Array.from({ length: 61 }, (_, i) => ({
+  nombre_establecimiento: `Colegio ${String(i + 1).padStart(2, "0")}`,
+  codigo_establecimiento: String(i + 1), tipo: i < 30 ? "Público" : "Privado",
+}));
+function respuestaColegios(modo = "lista", sector: string | null = null) {
+  return new Response(JSON.stringify({
+    respuesta: "Hay 61 colegios.\n\nHallazgos principales:\n- Detalle técnico.",
+    respuesta_ciudadana: { respuesta_corta: "Hay 61 colegios." },
+    datos: { detalle_consulta: {
+      modo_respuesta: modo, sector_consultado: sector, consulta_completa: true,
+      total_establecimientos_unicos: 61, vigencia_mas_reciente: 2025,
+      territorio: { departamento: "Meta", municipio: "Villavicencio" },
+      lista_establecimientos: modo === "lista" ? lista : [],
+    } },
+    fuentes: ["MEN", "https://www.datos.gov.co/resource/cfw5-qzt5.json"],
+  }), { status: 200 });
+}
+
+it("muestra una lista de nombres y tipos, pagina todos los colegios y busca por nombre", async () => {
+  const fetchMock = vi.fn().mockResolvedValue(respuestaColegios());
+  vi.stubGlobal("fetch", fetchMock);
+  render(<App />);
+  preguntar("Colegios en Villavicencio");
+  await screen.findByRole("list", { name: "Listado de colegios" });
+  expect(screen.getByText("2025")).toBeTruthy();
+  expect(screen.queryByText("2.025")).toBeNull();
+  expect(screen.queryByText(/Detalle técnico/)).toBeNull();
+  expect(screen.queryByText(/Ver muestra de registros/)).toBeNull();
+  expect(screen.getByText("Colegio 25")).toBeTruthy();
+  expect(screen.queryByText("Colegio 26")).toBeNull();
+  fireEvent.click(screen.getByRole("button", { name: "Siguiente" }));
+  expect(screen.getByText("Colegio 26")).toBeTruthy();
+  expect(screen.queryByText("Colegio 01")).toBeNull();
+  fireEvent.change(screen.getByLabelText("Buscar colegio por nombre"), { target: { value: "Colegio 61" } });
+  expect(screen.getByText("Colegio 61")).toBeTruthy();
+  expect(screen.queryByText("Colegio 26")).toBeNull();
+  expect(screen.queryByRole("button", { name: "Siguiente" })).toBeNull();
+  expect(fetchMock).toHaveBeenCalledTimes(1);
+});
+
+it("responde a cuántos con el número y carga el directorio al elegir un tipo, sin repetir solicitudes", async () => {
+  const fetchMock = vi.fn().mockResolvedValueOnce(respuestaColegios("conteo"))
+    .mockResolvedValueOnce(respuestaColegios());
+  vi.stubGlobal("fetch", fetchMock);
+  render(<App />);
+  preguntar("¿Cuántos colegios hay en Villavicencio?");
+  await screen.findByText("Hay 61 colegios.");
+  expect(screen.queryByRole("list", { name: "Listado de colegios" })).toBeNull();
+  fireEvent.click(screen.getByRole("button", { name: "Conocer privados" }));
+  await screen.findByText("Colegio 31");
+  expect(screen.queryByText("Colegio 01")).toBeNull();
+  const [url, options] = fetchMock.mock.calls[1];
+  expect(url).toBe("/api/colegios");
+  expect(JSON.parse(options.body)).toEqual({ departamento: "Meta", municipio: "Villavicencio", modo_respuesta: "lista" });
+  fireEvent.click(screen.getByRole("button", { name: "Conocer públicos" }));
+  expect(screen.getByText("Colegio 01")).toBeTruthy();
+  expect(screen.queryByText("Colegio 31")).toBeNull();
+  fireEvent.click(screen.getByRole("button", { name: "Conocerlos todos" }));
+  expect(screen.getByText("Página 1 de 3")).toBeTruthy();
+  expect(fetchMock).toHaveBeenCalledTimes(2);
+});
+
+it("conserva el conteo ante un fallo al cargar los colegios y permite reintentar", async () => {
+  const fetchMock = vi.fn().mockResolvedValueOnce(respuestaColegios("conteo"))
+    .mockResolvedValueOnce(new Response("{}", { status: 502 }))
+    .mockResolvedValueOnce(respuestaColegios());
+  vi.stubGlobal("fetch", fetchMock);
+  render(<App />);
+  preguntar("¿Cuántos colegios hay en Villavicencio?");
+  await screen.findByText("Hay 61 colegios.");
+  fireEvent.click(screen.getByRole("button", { name: "Conocerlos todos" }));
+  expect((await screen.findByRole("alert")).textContent).toContain("fuente oficial");
+  expect(screen.getByText("Hay 61 colegios.")).toBeTruthy();
+  expect(screen.queryByText("No se encontraron colegios con este filtro.")).toBeNull();
+  fireEvent.click(screen.getByRole("button", { name: "Conocerlos todos" }));
+  await screen.findByRole("list", { name: "Listado de colegios" });
+  expect(screen.queryByRole("alert")).toBeNull();
+});
+
+it("respeta la espera al cargar un directorio ocupado sin consultar automáticamente", async () => {
+  const fetchMock = vi.fn().mockResolvedValueOnce(respuestaColegios("conteo"))
+    .mockResolvedValueOnce(new Response("{}", { status: 503, headers: { "Retry-After": "1" } }));
+  vi.stubGlobal("fetch", fetchMock);
+  render(<App />);
+  preguntar("¿Cuántos colegios hay en Villavicencio?");
+  await screen.findByText("Hay 61 colegios.");
+  fireEvent.click(screen.getByRole("button", { name: "Conocerlos todos" }));
+  await screen.findByRole("alert");
+  expect((screen.getByRole("button", { name: "Conocerlos todos" }) as HTMLButtonElement).disabled).toBe(true);
+  await waitFor(() => expect((screen.getByRole("button", { name: "Conocerlos todos" }) as HTMLButtonElement).disabled).toBe(false), { timeout: 2000 });
+  expect(fetchMock).toHaveBeenCalledTimes(2);
+  expect(screen.queryByRole("list", { name: "Listado de colegios" })).toBeNull();
 });
 
 it("acepta solo enlaces web y las dos formas de Retry-After", () => {

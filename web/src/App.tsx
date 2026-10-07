@@ -7,12 +7,12 @@ import {
 } from "react";
 import {
   consultar,
-  enlacePublico,
   ErrorConsulta,
   mostrarValor,
   type Registro,
   type Respuesta,
 } from "./api";
+import ListaColegios from "./ListaColegios";
 
 const ejemplos = [
   {
@@ -87,6 +87,13 @@ function Icono({
 
 function Resultados({ resultado }: { resultado: Respuesta }) {
   const detalle = resultado.datos.detalle_consulta as Registro | undefined;
+  const esColegios = !!detalle && Array.isArray(detalle.lista_establecimientos);
+  // La procedencia se lee en la página; los endpoints JSON son para la API.
+  const fuentes = [...new Set(resultado.fuentes.filter((texto) =>
+    !/^[a-z][a-z\d+.-]*:/i.test(texto.trim()),
+  ))];
+  if (!fuentes.length && resultado.fuentes.some((texto) => texto.includes("datos.gov.co")))
+    fuentes.push("Datos abiertos del Gobierno de Colombia");
   const indicadores: [string, string][] = [
     ["total_establecimientos_unicos", "Establecimientos"],
     ["total_instituciones_unicas", "Instituciones"],
@@ -132,17 +139,18 @@ function Resultados({ resultado }: { resultado: Respuesta }) {
       </div>
       <h2 id="resultado-titulo">Esto encontramos</h2>
       <p className="pregunta-enviada">{resultado.pregunta}</p>
-      <p className="respuesta-texto">{resultado.respuesta}</p>
+      <p className="respuesta-texto">{esColegios ? resultado.resumen : resultado.respuesta}</p>
       {visibles.length > 0 && (
         <dl className="indicadores">
           {visibles.map(([clave, label]) => (
             <div key={clave}>
               <dt>{label}</dt>
-              <dd>{mostrarValor(detalle![clave])}</dd>
+              <dd>{mostrarValor(detalle![clave], clave)}</dd>
             </div>
           ))}
         </dl>
       )}
+      {esColegios && <ListaColegios detalle={detalle!} />}
       {resultado.advertencias.length > 0 && (
         <aside
           className="advertencias"
@@ -156,7 +164,7 @@ function Resultados({ resultado }: { resultado: Respuesta }) {
           </ul>
         </aside>
       )}
-      {muestra.length > 0 && columnas.length > 0 && (
+      {!esColegios && muestra.length > 0 && columnas.length > 0 && (
         <details className="muestra">
           <summary>Ver muestra de registros ({muestra.length})</summary>
           <p>
@@ -182,7 +190,7 @@ function Resultados({ resultado }: { resultado: Respuesta }) {
                 {muestra.map((fila, i) => (
                   <tr key={i}>
                     {columnas.map((col) => (
-                      <td key={col}>{mostrarValor(fila[col])}</td>
+                      <td key={col}>{mostrarValor(fila[col], col)}</td>
                     ))}
                   </tr>
                 ))}
@@ -191,28 +199,15 @@ function Resultados({ resultado }: { resultado: Respuesta }) {
           </div>
         </details>
       )}
-      {resultado.fuentes.length > 0 && (
+      {fuentes.length > 0 && (
         <div className="fuentes">
-          <h3>Fuentes de esta respuesta</h3>
+          <h3>De dónde viene esta información</h3>
           <ul>
-            {resultado.fuentes.map((fuente, i) => {
-              const url = enlacePublico(fuente);
-              return (
-                <li key={i}>
-                  {url ? (
-                    <a href={url} target="_blank" rel="noopener noreferrer">
-                      Consultar fuente oficial <Icono nombre="enlace" />
-                    </a>
-                  ) : (
-                    <span>{fuente}</span>
-                  )}
-                </li>
-              );
-            })}
+            {fuentes.map((fuente, i) => <li key={i}>{fuente}</li>)}
           </ul>
         </div>
       )}
-      {sugerencias.length > 0 && (
+      {!esColegios && sugerencias.length > 0 && (
         <div className="sugerencias">
           <h3>Puedes seguir explorando</h3>
           <ul>

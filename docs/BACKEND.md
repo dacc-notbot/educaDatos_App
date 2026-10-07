@@ -106,6 +106,36 @@ Estos pasos ejecutan el backend en tu propio equipo. No requieren Cloud Run.
 
 ## Consultas disponibles
 
+### Colegios: última vigencia y directorio completo
+
+`services/directorio_colegios.py` consulta `max(a_o)` en el dataset oficial del MEN
+`cfw5-qzt5`, después cuenta y descarga los registros del territorio **de esa
+vigencia**, por páginas de hasta 5000 filas ordenadas por el identificador de
+Socrata. Usa filtros exactos de municipio/departamento, sin la búsqueda general
+`$q`. Si el territorio no tiene registros de ese año, informa la ausencia sin
+volver silenciosamente a un año anterior.
+
+El código DANE identifica cada colegio; si falta, se usa el nombre normalizado
+con su territorio y se informa esta limitación. El conteo y la distribución por
+sector salen de la misma lista sin duplicados. Dos códigos DANE diferentes
+identifican colegios diferentes aunque sus nombres coincidan. Si el código DANE
+tiene sectores contradictorios, su tipo se muestra como «Sin dato».
+
+En este directorio, `limit` se conserva por compatibilidad con la API y se reporta
+como `limit_solicitado`; no recorta la lista ni convierte una muestra en un total.
+`limit_usado` indica las filas descargadas. El máximo `MAX_LIMIT` limita el tamaño
+total aceptado: si se supera o una página falla, se informa un error de fuente
+(502), en vez de presentar un directorio parcial como completo. Las consultas
+usan la caché común con su caducidad configurada (3600 segundos por defecto).
+
+`colegios en villavicencio` pide una lista. `¿Cuántos colegios hay en Villavicencio?`
+pide un conteo. Pedir «públicos y privados» mantiene ambos sectores; pedir uno
+aplica el filtro antes de obtener el conteo. La interfaz ofrece los tres filtros
+como botones sin requerir otra pregunta escrita.
+
+La vigencia publicada puede ser anterior al año actual. La aplicación informa
+el año disponible y no certifica el estado presente de cada colegio.
+
 Todas estas rutas aceptan JSON mediante **POST** y devuelven el contrato común:
 
 | Ruta | Datos de entrada principales |

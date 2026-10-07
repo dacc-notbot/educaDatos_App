@@ -578,6 +578,13 @@ def es_texto_generico_educativo(texto: Optional[str]) -> bool:
 def detectar_sector_establecimiento(pregunta: str) -> Optional[str]:
     p = normalizar_texto(pregunta)
 
+    privado = contiene_alguna(p, ["no oficial", "privado", "particular"])
+    # «Oficial» dentro de «no oficial» no equivale a pedir ambos sectores.
+    sin_privados = p.replace("no oficiales", "").replace("no oficial", "")
+    publico = contiene_alguna(sin_privados, ["oficial", "publico"])
+    if privado and publico:
+        return None
+
     if any(palabra in p for palabra in [
         "no oficial",
         "no oficiales",
@@ -667,7 +674,8 @@ def detectar_modo_respuesta_establecimientos(pregunta: str) -> str:
     if es_pregunta_lista_establecimientos(pregunta):
         return "lista"
 
-    return "conteo"
+    # Una orden breve como «colegios en Villavicencio» pide el directorio.
+    return "lista"
 
 
 def es_saludo_o_mensaje_general(pregunta: str) -> bool:

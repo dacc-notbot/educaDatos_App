@@ -6,15 +6,15 @@
     BlinkMacSystemFont,
     "Segoe UI",
     sans-serif;
-  color: #263e39;
-  background: #f7f8f4;
+  color: #303234;
+  background: #f7f7f5;
   font-synthesis: none;
   text-rendering: optimizeLegibility;
   -webkit-font-smoothing: antialiased;
-  --verde: #174e46;
-  --claro: #edf4ed;
-  --borde: #dce5dc;
-  --muted: #52665f;
+  --acento: #373b3f;
+  --claro: #f0f0ed;
+  --borde: #dedfda;
+  --muted: #5c6165;
 }
 * {
   box-sizing: border-box;
@@ -23,11 +23,12 @@ body {
   margin: 0;
 }
 button,
+input,
 textarea {
   font: inherit;
 }
 a {
-  color: var(--verde);
+  color: var(--acento);
 }
 button,
 a,
@@ -38,8 +39,9 @@ summary {
 button:focus-visible,
 a:focus-visible,
 summary:focus-visible,
-textarea:focus-visible {
-  outline: 3px solid #b35d27;
+textarea:focus-visible,
+input:focus-visible {
+  outline: 3px solid #52585e;
 }
 button {
   cursor: pointer;
@@ -75,7 +77,7 @@ footer {
   letter-spacing: -0.7px;
 }
 .marca-icono {
-  background: var(--verde);
+  background: var(--acento);
   color: white;
   padding: 10px;
   border-radius: 13px;
@@ -97,14 +99,14 @@ footer {
   display: flex;
   align-items: center;
   gap: 8px;
-  background: #ecf3e9;
+  background: #eceeeb;
   border-radius: 30px;
   padding: 9px 13px;
 }
 .acceso i {
   width: 6px;
   height: 6px;
-  background: #427044;
+  background: #626b63;
   border-radius: 50%;
 }
 main {
@@ -121,7 +123,7 @@ main {
   font-size: 10px;
   letter-spacing: 1.6px;
   font-weight: 750;
-  color: var(--verde);
+  color: var(--acento);
   display: flex;
   align-items: center;
   gap: 9px;
@@ -142,7 +144,7 @@ h1 {
 }
 h1 em {
   font-style: normal;
-  color: #a5562b;
+  color: #73716c;
 }
 h2 {
   font-size: 23px;
@@ -165,7 +167,7 @@ h3 {
   gap: 22px;
   font-size: 11px;
   margin-top: 23px;
-  color: #49664e;
+  color: #5c6165;
 }
 .hero-notas span:before {
   content: "✓";
@@ -181,7 +183,7 @@ h3 {
 .orbita {
   position: absolute;
   inset: 0;
-  border: 1px solid #d2dfcf;
+  border: 1px solid #d6d8d2;
   border-radius: 50%;
   transform: rotate(-18deg);
 }
@@ -189,14 +191,14 @@ h3 {
   content: "";
   position: absolute;
   inset: 24px;
-  border: 1px dashed #d4dfcc;
+  border: 1px dashed #d6d8d2;
   border-radius: 50%;
 }
 .centro-ilustracion {
   position: absolute;
   inset: 48px;
   transform: rotate(18deg);
-  background: #e7efdf;
+  background: #e9eae5;
   border-radius: 50%;
   display: flex;
   flex-direction: column;
@@ -204,7 +206,7 @@ h3 {
   justify-content: center;
   gap: 13px;
   text-align: center;
-  color: #4b694b;
+  color: #606561;
   font-size: 12px;
   line-height: 1.6;
 }
@@ -218,8 +220,8 @@ h3 {
   left: 14px;
   width: 12px;
   height: 12px;
-  background: #bd7248;
-  border: 3px solid #f7f8f4;
+  background: #8a8780;
+  border: 3px solid #f7f7f5;
   border-radius: 50%;
 }
 .orbita-punto.otro {
@@ -227,7 +229,7 @@ h3 {
   left: auto;
   bottom: 20px;
   right: 36px;
-  background: #547f62;
+  background: #666d68;
 }
 .mini-tarjeta {
   position: absolute;
@@ -237,7 +239,7 @@ h3 {
   padding: 13px 16px;
   background: #fff;
   border: 1px solid var(--borde);
-  box-shadow: 0 8px 22px #26432608;
+  box-shadow: 0 8px 22px #30323408;
   border-radius: 12px;
   font-size: 11px;
   white-space: nowrap;
@@ -245,7 +247,7 @@ h3 {
 .mini-tarjeta svg {
   width: 19px;
   height: 19px;
-  color: #a15b30;
+  color: #73716c;
 }
 .tarjeta-arriba {
   right: -27px;
@@ -261,7 +263,7 @@ h3 {
   background: #fff;
   border: 1px solid var(--borde);
   border-radius: 18px;
-  box-shadow: 0 4px 12px #174e4603;
+  box-shadow: 0 4px 12px #373b3f03;
 }
 .consulta {
   padding: 29px 32px;
@@ -275,7 +277,7 @@ h3 {
 }
 .paso {
   font-size: 10px;
-  color: #658272;
+  color: #656b68;
   letter-spacing: 0.3px;
 }
 .consulta label {
@@ -292,14 +294,14 @@ h3 {
   max-height: 400px;
   line-height: 1.65;
   padding: 17px 19px;
-  border: 1px solid #d3dfd5;
+  border: 1px solid #d4d7d2;
   border-radius: 11px;
-  background: #fbfcf9;
-  color: #243e37;
+  background: #fcfcfa;
+  color: #303234;
   font-size: 15px;
 }
 .consulta textarea::placeholder {
-  color: #78887f;
+  color: #777d78;
 }
 .form-footer {
   display: flex;
@@ -317,7 +319,7 @@ h3 {
 .contador {
   display: block;
   font-size: 10px;
-  color: #6b7e72;
+  color: #656b68;
   margin-top: 3px;
 }
 .boton-consultar {
@@ -329,13 +331,13 @@ h3 {
   border: 0;
   padding: 14px 19px;
   color: #fff;
-  background: var(--verde);
+  background: var(--acento);
   border-radius: 9px;
   font-size: 13px;
   font-weight: 650;
 }
 .boton-consultar:hover:enabled {
-  background: #246c5f;
+  background: #4a5055;
 }
 .boton-consultar:disabled {
   opacity: 0.6;
@@ -364,12 +366,12 @@ h3 {
   padding: 13px 16px;
   margin: 20px 0 0;
   border-radius: 9px;
-  background: #eef4ed;
+  background: #eff0ec;
 }
 .error {
-  background: #fff2e8;
-  color: #8b471b;
-  border: 1px solid #efd6c1;
+  background: #f0eeeb;
+  color: #484643;
+  border: 1px solid #c8c5bf;
 }
 .examples-heading {
   display: flex;
@@ -407,7 +409,7 @@ h3 {
 }
 .ejemplo:hover:enabled {
   transform: translateY(-3px);
-  border-color: #6d9278;
+  border-color: #878e88;
 }
 .ejemplo:disabled {
   opacity: 0.6;
@@ -415,9 +417,9 @@ h3 {
 .ejemplo-icono {
   display: flex;
   padding: 8px;
-  background: #eef3e8;
+  background: #efefea;
   border-radius: 9px;
-  color: #4e6c45;
+  color: #5c655c;
   margin-bottom: 13px;
 }
 .ejemplo-icono svg {
@@ -428,7 +430,7 @@ h3 {
   font-size: 10px;
   letter-spacing: 0.6px;
   text-transform: uppercase;
-  color: #4b6b53;
+  color: #5d655e;
   font-weight: 700;
 }
 .ejemplo-pregunta {
@@ -442,7 +444,7 @@ h3 {
   justify-content: space-between;
   width: 100%;
   font-size: 10px;
-  color: var(--verde);
+  color: var(--acento);
   margin-top: auto;
 }
 .ejemplo-accion svg {
@@ -456,7 +458,7 @@ h3 {
   padding: 28px 0 38px;
 }
 .nota-icono {
-  color: #6c7e62;
+  color: #687064;
   padding-top: 9px;
 }
 .nota-icono svg {
@@ -486,7 +488,7 @@ footer {
 }
 .footer-marca {
   font-weight: 700;
-  color: var(--verde);
+  color: var(--acento);
   font-size: 13px;
 }
 footer a {
@@ -512,8 +514,8 @@ footer svg {
 .result-badge {
   border-radius: 20px;
   padding: 6px 10px;
-  background: #eef4ed;
-  color: #486640;
+  background: #eff0ec;
+  color: #5c655c;
   font-size: 10px;
 }
 .pregunta-enviada {
@@ -535,7 +537,7 @@ footer svg {
   margin: 22px 0;
 }
 .indicadores > div {
-  background: #f5f8f1;
+  background: #f4f5f0;
   padding: 16px;
   border-radius: 10px;
 }
@@ -551,12 +553,12 @@ footer svg {
 .advertencias {
   margin: 22px 0;
   padding: 17px 20px;
-  background: #fff6e8;
-  border: 1px solid #eddac0;
+  background: #f1f0eb;
+  border: 1px solid #d7d4ca;
   border-radius: 10px;
   font-size: 12px;
   line-height: 1.8;
-  color: #754f24;
+  color: #575348;
 }
 .advertencias ul,
 .sugerencias ul {
@@ -595,10 +597,99 @@ footer svg {
   line-height: 1.6;
   margin: 20px 0;
 }
+.directorio {
+  border-top: 1px solid var(--borde);
+  margin-top: 22px;
+  padding-top: 20px;
+  font-size: 12px;
+  line-height: 1.7;
+}
+.filtros-colegios,
+.paginas-colegios {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
+}
+.filtros-colegios button,
+.paginas-colegios button {
+  padding: 9px 13px;
+  border: 1px solid var(--borde);
+  border-radius: 9px;
+  background: #fff;
+  color: var(--acento);
+  font-size: 12px;
+}
+.filtros-colegios button[aria-pressed="true"] {
+  background: var(--acento);
+  border-color: var(--acento);
+  color: #fff;
+}
+.filtros-colegios button:hover:enabled,
+.paginas-colegios button:hover:enabled {
+  border-color: var(--acento);
+}
+.filtros-colegios button:disabled,
+.paginas-colegios button:disabled {
+  opacity: 0.55;
+}
+.directorio-vigencia,
+.resumen-lista {
+  color: var(--muted);
+  margin: 16px 0;
+}
+.buscar-colegio {
+  display: block;
+  max-width: 450px;
+  color: var(--muted);
+}
+.buscar-colegio input {
+  display: block;
+  width: 100%;
+  margin-top: 7px;
+  padding: 12px 14px;
+  border: 1px solid var(--borde);
+  border-radius: 9px;
+  background: #fcfcfa;
+  color: #303234;
+  font-size: 13px;
+}
+.lista-colegios {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+.lista-encabezado,
+.lista-colegios li {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 90px;
+  gap: 16px;
+  padding: 12px 0;
+  border-bottom: 1px solid var(--borde);
+  overflow-wrap: anywhere;
+}
+.lista-encabezado {
+  color: var(--muted);
+  font-weight: 650;
+}
+.tipo-colegio {
+  background: #f0f0ed;
+  color: #50564f;
+  padding: 3px 9px;
+  border-radius: 20px;
+  width: fit-content;
+  align-self: start;
+  font-size: 11px;
+}
+.paginas-colegios {
+  margin-top: 16px;
+  justify-content: space-between;
+  color: var(--muted);
+}
 .muestra summary {
   cursor: pointer;
   font-weight: 650;
-  color: var(--verde);
+  color: var(--acento);
   padding: 8px 0;
 }
 .tabla-scroll {
@@ -621,7 +712,7 @@ td {
   overflow-wrap: anywhere;
 }
 th {
-  background: #f3f7f0;
+  background: #f1f3ed;
   text-transform: capitalize;
 }
 .solo-lectores,

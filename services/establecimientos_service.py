@@ -1,14 +1,21 @@
 from utils.normalizacion import valor_a_numero
+from decimal import Decimal, InvalidOperation
 from collections import Counter
+
+from config import DATASETS
+from services.directorio_colegios import consultar_directorio_vigente
 from typing import Any, Dict, List, Optional
 
 from services.socrata_service import (
-    consultar_dataset,
     normalizar_texto,
-    seleccionar_columna_por_patrones,
 )
 
-from config import DEFAULT_ANALYTIC_LIMIT, MAX_LIMIT, MIN_LIMIT_DEPARTAMENTAL, MIN_LIMIT_MUNICIPAL
+from config import (
+    DEFAULT_ANALYTIC_LIMIT,
+    MAX_LIMIT,
+    MIN_LIMIT_DEPARTAMENTAL,
+    MIN_LIMIT_MUNICIPAL,
+)
 
 
 # ============================================================
@@ -25,8 +32,6 @@ def limpiar_valor(valor: Any) -> str:
         return ""
 
     return texto
-
-
 
 
 def formatear_numero(valor: Any) -> str:
@@ -269,58 +274,64 @@ def construir_lista_establecimientos(
     col_codigo_establecimiento: Optional[str],
     max_items: Optional[int] = None,
 ) -> List[Dict[str, Any]]:
-    """
-    Construye una lista sin duplicados.
-
-    Si max_items es None, devuelve todos los establecimientos únicos encontrados.
-    Si max_items tiene valor, limita la lista.
-    """
-    lista = []
-    vistos = set()
-
+    """Una entrada por código DANE; nombres normalizados si falta el código."""
+    unicos = {}
     for registro in registros:
         nombre = limpiar_valor(registro.get(col_nombre)) if col_nombre else ""
-        if not nombre:
-            continue
-
         codigo = (
             limpiar_valor(registro.get(col_codigo_establecimiento))
             if col_codigo_establecimiento
             else ""
         )
-        clave = normalizar_texto(codigo or nombre)
-
-        if clave in vistos:
-            continue
-
-        vistos.add(clave)
-
-        item = {"nombre_establecimiento": nombre}
-
         if codigo:
-            item["codigo_establecimiento"] = codigo
-
-        if col_sector:
-            sector = limpiar_valor(registro.get(col_sector))
-            if sector:
-                item["sector"] = sector
-
-        if col_direccion:
-            direccion = limpiar_valor(registro.get(col_direccion))
-            if direccion:
-                item["direccion"] = direccion
-
-        if col_matricula:
-            matricula = limpiar_valor(registro.get(col_matricula))
-            if matricula:
-                item["matricula"] = matricula
-
-        lista.append(item)
-
-        if max_items is not None and len(lista) >= max_items:
-            break
-
-    return lista
+            try:
+                numero = Decimal(codigo)
+                if numero.is_finite() and numero == numero.to_integral_value():
+                    codigo = str(int(numero))
+            except InvalidOperation:
+                pass
+        if not codigo and not nombre:
+            raise RuntimeError(
+                "La fuente contiene colegios sin código ni nombre. No es posible confirmar un conteo único."
+            )
+        sector = (
+            normalizar_sector_consulta(registro.get(col_sector)) if col_sector else None
+        )
+        tipo = {"OFICIAL": "Público", "NO_OFICIAL": "Privado"}.get(sector, "Sin dato")
+        clave = (
+            ("codigo", codigo)
+            if codigo
+            else (
+                "nombre",
+                normalizar_texto(registro.get("departamento")),
+                normalizar_texto(registro.get("municipio")),
+                normalizar_texto(nombre),
+            )
+        )
+        item = {
+            "nombre_establecimiento": nombre or "Nombre no informado",
+            "codigo_establecimiento": codigo,
+            "sector": sector,
+            "tipo": tipo,
+        }
+        if clave in unicos:
+            anterior = unicos[clave]
+            if anterior["nombre_establecimiento"] == "Nombre no informado" and nombre:
+                anterior["nombre_establecimiento"] = nombre
+            if anterior["tipo"] != tipo:
+                anterior["tipo"] = "Sin dato"
+                anterior["sector"] = None
+                anterior["sector_inconsistente"] = True
+        else:
+            unicos[clave] = item
+    lista = sorted(
+        unicos.values(),
+        key=lambda item: (
+            normalizar_texto(item["nombre_establecimiento"]),
+            item["codigo_establecimiento"],
+        ),
+    )
+    return lista if max_items is None else lista[:max_items]
 
 
 def construir_sugerencias_establecimientos(
@@ -361,7 +372,7 @@ def construir_sugerencias_establecimientos(
 
 
 # ============================================================
-# Servicio principal
+# Servicio principal: una misma lista única para conteos y filtros.
 # ============================================================
 
 
@@ -372,297 +383,61 @@ def consultar_establecimientos_educativos_service(
     limit: int = DEFAULT_ANALYTIC_LIMIT,
     modo_respuesta: str = "conteo",
 ) -> Dict[str, Any]:
-    """
-    Consulta establecimientos educativos.
-
-    Modo conteo:
-    - usa solo la vigencia más reciente,
-    - cuenta establecimientos únicos,
-    - calcula distribución oficial/no oficial,
-    - NO devuelve lista detallada.
-
-    Modo lista:
-    - usa solo la vigencia más reciente,
-    - filtra por sector si aplica,
-    - devuelve todos los establecimientos únicos encontrados.
-    """
     if not departamento and not municipio:
         raise ValueError(
-            "Debes indicar al menos un departamento o municipio para consultar "
-            "establecimientos educativos."
+            "Debes indicar al menos un departamento o municipio para consultar colegios."
         )
-
     modo = normalizar_modo_respuesta(modo_respuesta)
     sector_normalizado = normalizar_sector_consulta(sector)
-    limit_final = resolver_limit_establecimientos(
-        departamento=departamento,
-        municipio=municipio,
-        limit=limit,
+    registros, anio = consultar_directorio_vigente(departamento, municipio)
+    todos = construir_lista_establecimientos(
+        registros, "nombre_establecimiento", "sector", None, None, "codigo_dane"
     )
-    q_inicial = municipio if municipio else None
-
-    registros = consultar_dataset(
-        dataset_key="establecimientos_educativos",
-        limit=limit_final,
-        q=q_inicial,
-    )
-
+    seleccionados = [
+        item
+        for item in todos
+        if not sector_normalizado or item["sector"] == sector_normalizado
+    ]
+    distribucion = dict(Counter(item["sector"] or "SIN DATO" for item in todos))
+    publicos = distribucion.get("OFICIAL", 0)
+    privados = distribucion.get("NO_OFICIAL", 0)
+    territorio = municipio or departamento
+    total = len(seleccionados)
+    tipo = {"OFICIAL": " público", "NO_OFICIAL": " privado"}.get(sector_normalizado, "")
+    nombre = "colegio" if total == 1 else "colegios"
+    if total != 1 and tipo:
+        tipo += "s"
+    participio = "registrado" if total == 1 else "registrados"
+    respuesta = f"En {territorio} hay {formatear_numero(total)} {nombre}{tipo} {participio} en la fuente del MEN para {anio}."
+    if not sector_normalizado and todos:
+        respuesta += f" {formatear_numero(publicos)} públicos y {formatear_numero(privados)} privados."
+    if not todos:
+        respuesta = f"No se encontraron colegios registrados en {territorio} para {anio}, el año más reciente publicado por el MEN."
+    limitaciones = [
+        f"Información del MEN correspondiente a {anio}, el año más reciente publicado en esta fuente; no confirma cambios posteriores."
+    ]
+    if distribucion.get("SIN DATO"):
+        limitaciones.append(
+            f"{distribucion['SIN DATO']} colegios no tienen un tipo público o privado confirmado en la fuente."
+        )
+    if any(item.get("sector_inconsistente") for item in todos):
+        limitaciones.append(
+            "La fuente asigna sectores diferentes al mismo código DANE. Esos colegios aparecen con tipo «Sin dato»."
+        )
+    if any(not item["codigo_establecimiento"] for item in todos):
+        limitaciones.append(
+            "Algunos colegios no tienen código DANE; para evitar repeticiones se usa su nombre y territorio."
+        )
+    if any(item["nombre_establecimiento"] == "Nombre no informado" for item in todos):
+        limitaciones.append(
+            "Algunos colegios tienen código DANE pero no un nombre informado por la fuente."
+        )
     fuente = {
         "dataset_key": "establecimientos_educativos",
-        "nombre": "MEN - Establecimientos educativos de preescolar, básica y media",
-        "url": "https://www.datos.gov.co/resource/cfw5-qzt5.json",
+        **DATASETS["establecimientos_educativos"],
         "url_portal": "https://www.datos.gov.co",
-        "descripcion": "Fuente pública del Gobierno de Colombia sobre establecimientos educativos.",
     }
-
-    territorio = municipio or departamento
-
-    if not registros:
-        return {
-            "tipo_consulta": "establecimientos_educativos",
-            "modo_respuesta": modo,
-            "territorio_consultado": {
-                "departamento": departamento,
-                "municipio": municipio,
-                "sector": sector_normalizado,
-            },
-            "respuesta_corta": (
-                f"No encontré registros de establecimientos educativos para {territorio} "
-                "con los filtros usados."
-            ),
-            "hallazgos_principales": [
-                "No se encontraron registros con los filtros utilizados.",
-                "Puedes intentar con otro nombre de municipio o departamento.",
-            ],
-            "datos": {
-                "modo_respuesta": modo,
-                "limit_usado": limit_final,
-                "total_registros_descargados": 0,
-                "vigencia_mas_reciente": None,
-                "anio_usado": None,
-                "total_registros_historicos": 0,
-                "total_registros_vigencia": 0,
-                "total_establecimientos_unicos": 0,
-                "total_sedes_reportadas": None,
-                "distribucion_sector": {},
-                "lista_establecimientos": [],
-                "muestra_establecimientos": [],
-            },
-            "fuentes_usadas": [fuente],
-            "limitaciones": [
-                "La ausencia de resultados puede depender de la forma como aparece registrado el territorio."
-            ],
-            "sugerencias_de_siguiente_pregunta": [
-                f"¿Cuántos colegios hay en {territorio}?",
-                f"Muéstrame la lista de colegios oficiales de {territorio}",
-                f"Muéstrame la lista de colegios no oficiales o privados de {territorio}",
-            ],
-        }
-
-    col_departamento = seleccionar_columna_por_patrones(
-        registros,
-        ["departamento", "nombre_departamento", "nom_departamento"],
-        excluir=["codigo", "cod", "id"],
-    )
-    col_municipio = seleccionar_columna_por_patrones(
-        registros,
-        ["municipio", "nombre_municipio", "nom_municipio"],
-        excluir=["codigo", "cod", "id"],
-    )
-    col_anio = seleccionar_columna_por_patrones(
-        registros,
-        ["a_o", "ano", "anio", "año", "vigencia", "periodo"],
-        excluir=["codigo", "cod", "id"],
-    )
-    col_codigo_establecimiento = seleccionar_columna_por_patrones(
-        registros,
-        [
-            "codigo_dane",
-            "cod_dane_establecimiento",
-            "codigo_dane_establecimiento",
-            "cod_establecimiento",
-            "codigo_establecimiento",
-            "codigo_dane_sede",
-        ],
-        excluir=[],
-    )
-    col_nombre = seleccionar_columna_por_patrones(
-        registros,
-        [
-            "nombre_establecimiento",
-            "nombreestablecimiento",
-            "establecimiento",
-            "institucion_educativa",
-            "institución educativa",
-            "institucion",
-            "institución",
-            "nombre",
-        ],
-        excluir=["codigo", "cod", "id", "sede"],
-    )
-    col_sector = seleccionar_columna_por_patrones(
-        registros,
-        ["sector", "nombre_sector", "sector_educativo"],
-        excluir=["codigo", "cod", "id"],
-    )
-    col_direccion = seleccionar_columna_por_patrones(
-        registros,
-        ["direccion", "dirección", "dir"],
-        excluir=["codigo", "cod", "id"],
-    )
-    col_matricula = seleccionar_columna_por_patrones(
-        registros,
-        ["total_matricula", "matricula_total", "matricula", "matrícula"],
-        excluir=["codigo", "cod", "id"],
-    )
-    col_sedes = seleccionar_columna_por_patrones(
-        registros,
-        ["cantidad_sedes", "numero_sedes", "número_sedes", "total_sedes", "sedes"],
-        excluir=["codigo", "cod", "id"],
-    )
-
-    # 1. Primero filtrar solo por territorio.
-    registros_territorio = [
-        registro
-        for registro in registros
-        if registro_coincide_territorio(
-            registro=registro,
-            departamento=departamento,
-            municipio=municipio,
-            col_departamento=col_departamento,
-            col_municipio=col_municipio,
-        )
-    ]
-
-    # 2. Detectar vigencia más reciente usando todo el territorio.
-    registros_vigencia_territorio, anio_usado = filtrar_por_vigencia_mas_reciente(
-        registros_territorio,
-        col_anio,
-    )
-
-    # 3. Calcular distribución por sector en la vigencia más reciente, sin filtrar por sector.
-    distribucion_sector_general = distribucion_por_columna(
-        registros_vigencia_territorio,
-        col_sector,
-    )
-    total_general_vigencia = len(registros_vigencia_territorio)
-    total_general_unicos = (
-        contar_unicos(registros_vigencia_territorio, col_codigo_establecimiento)
-        or contar_unicos(registros_vigencia_territorio, col_nombre)
-        or total_general_vigencia
-    )
-
-    # 4. Luego aplicar sector solo si el usuario pidió lista o filtro específico.
-    registros_vigencia = [
-        registro
-        for registro in registros_vigencia_territorio
-        if registro_coincide_sector(
-            registro=registro,
-            sector=sector_normalizado,
-            col_sector=col_sector,
-        )
-    ]
-
-    total_registros_historicos = len(registros_territorio)
-    total_registros_vigencia = len(registros_vigencia)
-    total_establecimientos_unicos = (
-        contar_unicos(registros_vigencia, col_codigo_establecimiento)
-        or contar_unicos(registros_vigencia, col_nombre)
-        or total_registros_vigencia
-    )
-    total_sedes_reportadas = sumar_columna(registros_vigencia, col_sedes)
-
-    if modo == "lista":
-        lista_establecimientos = construir_lista_establecimientos(
-            registros=registros_vigencia,
-            col_nombre=col_nombre,
-            col_sector=col_sector,
-            col_direccion=col_direccion,
-            col_matricula=col_matricula,
-            col_codigo_establecimiento=col_codigo_establecimiento,
-            max_items=None,
-        )
-    else:
-        lista_establecimientos = []
-
-    texto_anio = f" al año {anio_usado}" if anio_usado else ""
-
-    if modo == "conteo":
-        oficiales = distribucion_sector_general.get("OFICIAL")
-        no_oficiales = (
-            distribucion_sector_general.get("NO_OFICIAL")
-            or distribucion_sector_general.get("NO OFICIAL")
-            or distribucion_sector_general.get("No oficial")
-        )
-
-        if oficiales is not None and no_oficiales is not None:
-            respuesta_corta = (
-                f"Según los datos más recientes disponibles{texto_anio}, en {territorio} "
-                f"se encuentran registrados {formatear_numero(total_general_unicos)} "
-                "establecimientos educativos: "
-                f"{formatear_numero(oficiales)} oficiales o públicos y "
-                f"{formatear_numero(no_oficiales)} no oficiales o privados."
-            )
-        else:
-            respuesta_corta = (
-                f"Según los datos más recientes disponibles{texto_anio}, en {territorio} "
-                f"se encuentran registrados {formatear_numero(total_general_unicos)} "
-                "establecimientos educativos."
-            )
-
-        hallazgos = [
-            (
-                f"La información corresponde a la vigencia más reciente disponible: {anio_usado}."
-                if anio_usado
-                else "No se identificó una columna de vigencia; se usaron los registros disponibles."
-            ),
-            "El conteo se calcula sobre establecimientos educativos únicos.",
-        ]
-
-        if oficiales is not None:
-            hallazgos.append(
-                f"Establecimientos oficiales o públicos: {formatear_numero(oficiales)}."
-            )
-
-        if no_oficiales is not None:
-            hallazgos.append(
-                f"Establecimientos no oficiales o privados: {formatear_numero(no_oficiales)}."
-            )
-    else:
-        sector_texto = ""
-        if sector_normalizado == "OFICIAL":
-            sector_texto = " oficiales o públicos"
-        elif sector_normalizado == "NO_OFICIAL":
-            sector_texto = " no oficiales o privados"
-
-        respuesta_corta = (
-            f"Según los datos más recientes disponibles{texto_anio}, encontré "
-            f"{formatear_numero(total_establecimientos_unicos)} "
-            f"establecimientos educativos{sector_texto} en {territorio}. "
-            "A continuación se presenta la lista registrada en la fuente consultada."
-        )
-
-        hallazgos = [
-            (
-                f"La lista corresponde únicamente a la vigencia más reciente disponible: {anio_usado}."
-                if anio_usado
-                else "No se identificó una columna de vigencia; se usaron los registros disponibles."
-            ),
-            f"Se encontraron {formatear_numero(total_establecimientos_unicos)} "
-            f"establecimientos educativos{sector_texto}.",
-        ]
-
-        if not sector_normalizado:
-            hallazgos.append(
-                "La lista incluye establecimientos oficiales y no oficiales porque no se pidió un sector específico."
-            )
-
-    if modo == "conteo":
-        pregunta_continuacion = (
-            "¿Deseas ver la lista de colegios oficiales o la lista de colegios no oficiales/privados?"
-        )
-        hallazgos.append(pregunta_continuacion)
-
+    lista = seleccionados if modo == "lista" else []
     return {
         "tipo_consulta": "establecimientos_educativos",
         "modo_respuesta": modo,
@@ -671,52 +446,37 @@ def consultar_establecimientos_educativos_service(
             "municipio": municipio,
             "sector": sector_normalizado,
         },
-        "respuesta_corta": respuesta_corta,
-        "hallazgos_principales": hallazgos,
+        "respuesta_corta": respuesta,
+        "hallazgos_principales": [],
         "datos": {
             "modo_respuesta": modo,
-            "limit_usado": limit_final,
-            "q_inicial": q_inicial,
+            "territorio": {"departamento": departamento, "municipio": municipio},
+            "limit_solicitado": limit,
+            "limit_usado": len(registros),
+            "consulta_completa": True,
             "total_registros_descargados": len(registros),
-            "vigencia_mas_reciente": anio_usado,
-            "anio_usado": anio_usado,
-            "total_registros_historicos": total_registros_historicos,
-            "total_registros_vigencia": total_registros_vigencia,
-            "total_establecimientos_unicos": (
-                total_general_unicos
-                if modo == "conteo" and not sector_normalizado
-                else total_establecimientos_unicos
-            ),
-            "total_establecimientos_unicos_general": total_general_unicos,
-            "total_sedes_reportadas": total_sedes_reportadas,
-            "distribucion_sector": distribucion_sector_general,
+            "vigencia_mas_reciente": anio,
+            "anio_usado": anio,
+            "total_registros_vigencia": len(registros),
+            "total_establecimientos_unicos": total,
+            "total_establecimientos_unicos_general": len(todos),
+            "total_sedes_reportadas": sumar_columna(registros, "cantidad_sedes"),
+            "distribucion_sector": distribucion,
             "sector_consultado": sector_normalizado,
-            "lista_establecimientos": lista_establecimientos,
-            "muestra_establecimientos": lista_establecimientos,
+            "lista_establecimientos": lista,
+            "muestra_establecimientos": lista,
             "columnas_detectadas": {
-                "departamento": col_departamento,
-                "municipio": col_municipio,
-                "anio": col_anio,
-                "codigo_establecimiento": col_codigo_establecimiento,
-                "nombre_establecimiento": col_nombre,
-                "sector": col_sector,
-                "direccion": col_direccion,
-                "matricula": col_matricula,
-                "sedes": col_sedes,
+                "departamento": "departamento",
+                "municipio": "municipio",
+                "anio": "a_o",
+                "codigo_establecimiento": "codigo_dane",
+                "nombre_establecimiento": "nombre_establecimiento",
+                "sector": "sector",
             },
         },
         "fuentes_usadas": [fuente],
-        "limitaciones": [
-            "El conteo corresponde a establecimientos educativos únicos identificados en la fuente consultada.",
-            "La consulta usa la vigencia más reciente disponible; no mezcla años anteriores salvo que se solicite un comparativo histórico.",
-            "Para decisiones oficiales se recomienda verificar con la Secretaría de Educación o el MEN.",
-            "Si un establecimiento aparece repetido por sede, jornada u otra desagregación, el conteo único puede variar según la columna usada.",
-        ],
+        "limitaciones": limitaciones,
         "sugerencias_de_siguiente_pregunta": construir_sugerencias_establecimientos(
-            territorio=territorio or "el territorio consultado",
-            municipio=municipio,
-            departamento=departamento,
-            modo=modo,
-            sector_normalizado=sector_normalizado,
+            territorio, municipio, departamento, modo, sector_normalizado
         ),
     }

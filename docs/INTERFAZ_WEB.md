@@ -60,11 +60,34 @@ Incluye una caja de pregunta, botón de consultar y ejemplos que se puedan pulsa
 “¿Qué colegios hay en Soacha?”, “Haz un diagnóstico educativo de Villavicencio” y
 “¿Qué créditos ICETEX hay en Meta?”.
 
-Muestra el texto de `respuesta`, los datos relevantes, enlaces de `fuentes` y
+Muestra el texto de `respuesta`, los datos relevantes, los nombres de `fuentes` y
 `advertencias` visibles. Renderiza el texto como texto de React, sin insertar
 HTML crudo. Un conteo `null` se muestra como “No disponible”, nunca como cero.
 Presenta el año de los datos cuando venga en la respuesta, sin asumir que es
-el año actual.
+el año actual. Los años se presentan como `2025`, sin separador de miles.
+
+### Directorio de colegios
+
+La distribución, tipografía, tarjetas e ilustración conservan el diseño inicial.
+La paleta usa grises cálidos: fondo `#f7f7f5`, texto `#303234`, botones grafito
+`#373b3f`, acento piedra `#73716c` y bordes `#dedfda`. La bandera conserva sus
+colores como símbolo de Colombia. Alternativas para explorar después sin cambiar
+el diseño: gris neutro (fondo `#f7f7f7`, botón `#333333`) o gris pizarra
+(fondo `#f4f5f6`, botón `#364149`). La versión implementada es la de grises cálidos.
+
+- `colegios en villavicencio` muestra directamente el directorio.
+- `¿Cuántos colegios hay en Villavicencio?` muestra el número y los botones
+  **Conocer públicos**, **Conocer privados** y **Conocerlos todos**.
+- Cada entrada presenta únicamente el nombre del colegio y su tipo. La lista
+  incluye búsqueda por nombre (sin exigir tildes) y páginas de 25 entradas.
+- Al pulsar un botón desde un conteo se consulta `POST /colegios` con el territorio
+  detectado y `modo_respuesta: lista`. Los cambios de filtro posteriores reutilizan
+  ese directorio completo. Un fallo mantiene el conteo y permite reintentar.
+- El origen se explica con el nombre del MEN en la misma pantalla. No se muestran
+  enlaces al JSON ni una tabla de columnas técnicas para los colegios.
+- La vigencia del listado proviene de la API: no se afirma que represente cambios
+  ocurridos después del año publicado. Los tipos desconocidos se muestran como
+  «Sin dato»; no se les asigna un sector inventado.
 
 La fuente oficial de programas tiene una inconsistencia de identificación.
 La interfaz debe conservar la advertencia del backend y distinguir los títulos
@@ -97,4 +120,5 @@ HTTPS del backend y su salud antes de compilar y publicar. La interfaz se puede
 comprobar localmente; el lanzamiento público necesita un backend en Cloud Run.
 
 Pruebas automatizadas: `npm test --prefix web` desde la raíz. Cubren consulta,
-fuentes, advertencias, conteos no disponibles, errores y sobrecarga.
+fuentes, advertencias, conteos no disponibles, años, errores, sobrecarga,
+directorio, filtros, búsqueda, paginación y recuperación tras fallos.

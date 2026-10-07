@@ -2,6 +2,7 @@ export type Registro = Record<string, unknown>;
 export type Respuesta = {
   pregunta: string;
   respuesta: string;
+  resumen: string;
   datos: Registro;
   fuentes: string[];
   advertencias: string[];
@@ -34,6 +35,23 @@ export async function consultar(
   pregunta: string,
   signal: AbortSignal,
 ): Promise<Respuesta> {
+  return solicitar("/chat", { pregunta }, signal, pregunta);
+}
+
+export async function consultarColegios(
+  territorio: Registro,
+  signal: AbortSignal,
+): Promise<Respuesta> {
+  return solicitar("/colegios", {
+    departamento: territorio.departamento || undefined,
+    municipio: territorio.municipio || undefined,
+    modo_respuesta: "lista",
+  }, signal);
+}
+
+async function solicitar(
+  ruta: string, payload: Registro, signal: AbortSignal, pregunta = "",
+): Promise<Respuesta> {
   const base = (
     import.meta.env.VITE_API_BASE_URL || (import.meta.env.DEV ? "/api" : "")
   )
@@ -45,10 +63,10 @@ export async function consultar(
     );
   let response: Response;
   try {
-    response = await fetch(`${base}/chat`, {
+    response = await fetch(`${base}${ruta}`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ pregunta }),
+      body: JSON.stringify(payload),
       signal,
     });
   } catch (error) {
@@ -96,6 +114,7 @@ export async function consultar(
     );
   }
   const resultado = data as Record<string, unknown>;
+  const ciudadana = resultado.respuesta_ciudadana as Registro | undefined;
   const textos = (valor: unknown): string[] =>
     Array.isArray(valor)
       ? valor.filter((v): v is string => typeof v === "string")
@@ -104,6 +123,7 @@ export async function consultar(
     pregunta:
       typeof resultado.pregunta === "string" ? resultado.pregunta : pregunta,
     respuesta: data.respuesta,
+    resumen: typeof ciudadana?.respuesta_corta === "string" ? ciudadana.respuesta_corta : data.respuesta,
     datos:
       resultado.datos && typeof resultado.datos === "object"
         ? (resultado.datos as Registro)
@@ -124,8 +144,12 @@ export function enlacePublico(texto: string): string | null {
   }
 }
 
-export function mostrarValor(valor: unknown): string {
+export function mostrarValor(valor: unknown, clave = ""): string {
   if (valor == null) return "No disponible";
+  if (["vigencia_mas_reciente", "anio_usado", "a_o", "anio", "ano", "año", "vigencia", "year"].includes(clave)) {
+    const anio = Number(valor);
+    return Number.isInteger(anio) && anio >= 1000 && anio <= 9999 ? String(anio) : "No disponible";
+  }
   if (typeof valor === "number")
     return Number.isFinite(valor)
       ? new Intl.NumberFormat("es-CO").format(valor)
