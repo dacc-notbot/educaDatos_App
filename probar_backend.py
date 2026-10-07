@@ -1,6 +1,7 @@
 import os
 import json
 import time
+import sys
 from typing import Any, Dict, List, Optional
 from urllib.parse import urlencode
 
@@ -365,6 +366,8 @@ def validar_respuesta_chat(pregunta: str, data: Any) -> List[str]:
 
     if not respuesta:
         advertencias.append("La respuesta del chat no trae texto principal.")
+    if respuesta_indica_error(data):
+        advertencias.append("El chat respondió con un error o fallback de la fuente.")
 
     pregunta_norm = pregunta.lower()
 
@@ -391,6 +394,15 @@ def validar_respuesta_chat(pregunta: str, data: Any) -> List[str]:
     return advertencias
 
 
+def respuesta_indica_error(data: Any) -> bool:
+    if not isinstance(data, dict):
+        return False
+    texto = str(data.get("respuesta", "")).lower()
+    return bool(data.get("error")) or any(frase in texto for frase in (
+        "no pude consultar", "no pude procesar la consulta", "ocurrió un error inesperado",
+    ))
+
+
 def probar_chat(session: requests.Session, pregunta: str) -> Dict[str, Any]:
     url = BASE_URL + "/chat"
     inicio = time.time()
@@ -413,7 +425,7 @@ def probar_chat(session: requests.Session, pregunta: str) -> Dict[str, Any]:
                 "tipo": "POST /chat",
                 "pregunta": pregunta,
                 "status_code": response.status_code,
-                "ok": True,
+                "ok": not respuesta_indica_error(data),
                 "tiempo_segundos": duracion,
                 "intencion": extraer_intencion_chat(data),
                 "territorio": extraer_territorio_chat(data),
@@ -519,7 +531,7 @@ def construir_resumen(
     }
 
 
-def main() -> None:
+def main() -> int:
     print("\n=== EDUCADATOS - PRUEBAS DE BACKEND ===")
     print(f"Base URL: {BASE_URL}")
     print(f"Archivo de salida: {OUTPUT_FILE}")
@@ -569,9 +581,11 @@ def main() -> None:
 
     if resumen["get_error"] == 0 and resumen["chat_error"] == 0:
         print("\nRESULTADO GENERAL: OK. No hubo errores críticos.")
+        return 0
     else:
         print("\nRESULTADO GENERAL: REVISAR. Hay errores críticos en GET o CHAT.")
+        return 1
 
 
 if __name__ == "__main__":
-    main()
+    sys.exit(main())

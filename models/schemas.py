@@ -1,16 +1,20 @@
 from typing import Optional
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, ConfigDict, Field
 
 
-class PreguntaRequest(BaseModel):
+class ModeloEntrada(BaseModel):
+    model_config = ConfigDict(str_strip_whitespace=True)
+
+
+class PreguntaRequest(ModeloEntrada):
     pregunta: str = Field(
         ...,
-        min_length=1,
+        max_length=2000,
         description="Pregunta ciudadana en lenguaje natural."
     )
 
 
-class TerritorioRequest(BaseModel):
+class TerritorioRequest(ModeloEntrada):
     departamento: str = Field(
         ...,
         min_length=1,
@@ -22,7 +26,7 @@ class TerritorioRequest(BaseModel):
     )
 
 
-class MunicipioRequest(BaseModel):
+class MunicipioRequest(ModeloEntrada):
     departamento: str = Field(
         ...,
         min_length=1,
@@ -35,7 +39,7 @@ class MunicipioRequest(BaseModel):
     )
 
 
-class ConsultaColegiosRequest(BaseModel):
+class ConsultaColegiosRequest(ModeloEntrada):
     departamento: Optional[str] = Field(
         None,
         description="Departamento a consultar."
@@ -55,7 +59,7 @@ class ConsultaColegiosRequest(BaseModel):
     )
 
 
-class ConsultaProgramasRequest(BaseModel):
+class ConsultaProgramasRequest(ModeloEntrada):
     departamento: Optional[str] = Field(
         None,
         description="Departamento a consultar."
@@ -75,7 +79,7 @@ class ConsultaProgramasRequest(BaseModel):
     )
 
 
-class ConsultaIcetexRequest(BaseModel):
+class ConsultaIcetexRequest(ModeloEntrada):
     departamento: Optional[str] = Field(
         None,
         description="Departamento a consultar."
@@ -95,7 +99,7 @@ class ConsultaIcetexRequest(BaseModel):
     )
 
 
-class GrupoEstadisticoRequest(BaseModel):
+class GrupoEstadisticoRequest(ModeloEntrada):
     departamento: str = Field(
         ...,
         min_length=1,

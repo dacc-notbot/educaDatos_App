@@ -33,8 +33,10 @@ router = APIRouter(
 def chat_ciudadano(payload: PreguntaRequest):
     try:
         return resolver_consulta_ciudadana(payload.pregunta)
-    except Exception as error:
-        raise HTTPException(status_code=500, detail=str(error))
+    except ValueError as error:
+        raise HTTPException(status_code=422, detail=str(error)) from error
+    except RuntimeError as error:
+        raise HTTPException(status_code=502, detail=str(error)) from error
 
 
 @router.post("/colegios")
@@ -46,8 +48,10 @@ def consultar_colegios(payload: ConsultaColegiosRequest):
             sector=payload.sector,
             limit=payload.limit or 100000
         )
-    except Exception as error:
-        raise HTTPException(status_code=500, detail=str(error))
+    except ValueError as error:
+        raise HTTPException(status_code=422, detail=str(error)) from error
+    except RuntimeError as error:
+        raise HTTPException(status_code=502, detail=str(error)) from error
 
 
 @router.post("/programas-superior")
@@ -59,8 +63,10 @@ def consultar_programas_superior(payload: ConsultaProgramasRequest):
             texto=payload.texto,
             limit=payload.limit or 100000
         )
-    except Exception as error:
-        raise HTTPException(status_code=500, detail=str(error))
+    except ValueError as error:
+        raise HTTPException(status_code=422, detail=str(error)) from error
+    except RuntimeError as error:
+        raise HTTPException(status_code=502, detail=str(error)) from error
 
 
 @router.post("/bachilleres")
@@ -70,8 +76,10 @@ def consultar_bachilleres(payload: TerritorioRequest):
             departamento=payload.departamento,
             municipio=payload.municipio
         )
-    except Exception as error:
-        raise HTTPException(status_code=500, detail=str(error))
+    except ValueError as error:
+        raise HTTPException(status_code=422, detail=str(error)) from error
+    except RuntimeError as error:
+        raise HTTPException(status_code=502, detail=str(error)) from error
 
 
 @router.post("/icetex")
@@ -83,8 +91,10 @@ def consultar_icetex(payload: ConsultaIcetexRequest):
             tipo=payload.tipo,
             limit=payload.limit or 100000
         )
-    except Exception as error:
-        raise HTTPException(status_code=500, detail=str(error))
+    except ValueError as error:
+        raise HTTPException(status_code=422, detail=str(error)) from error
+    except RuntimeError as error:
+        raise HTTPException(status_code=502, detail=str(error)) from error
 
 
 @router.post("/transito-educativo")
@@ -94,8 +104,10 @@ def consultar_transito_educativo(payload: TerritorioRequest):
             departamento=payload.departamento,
             municipio=payload.municipio
         )
-    except Exception as error:
-        raise HTTPException(status_code=500, detail=str(error))
+    except ValueError as error:
+        raise HTTPException(status_code=422, detail=str(error)) from error
+    except RuntimeError as error:
+        raise HTTPException(status_code=502, detail=str(error)) from error
 
 
 @router.post("/diagnostico")
@@ -105,8 +117,10 @@ def consultar_diagnostico(payload: TerritorioRequest):
             departamento=payload.departamento,
             municipio=payload.municipio
         )
-    except Exception as error:
-        raise HTTPException(status_code=500, detail=str(error))
+    except ValueError as error:
+        raise HTTPException(status_code=422, detail=str(error)) from error
+    except RuntimeError as error:
+        raise HTTPException(status_code=502, detail=str(error)) from error
 
 
 @router.post("/grupo-estadistico")
@@ -116,8 +130,10 @@ def consultar_grupo_estadistico(payload: MunicipioRequest):
             departamento=payload.departamento,
             municipio=payload.municipio
         )
-    except Exception as error:
-        raise HTTPException(status_code=500, detail=str(error))
+    except ValueError as error:
+        raise HTTPException(status_code=422, detail=str(error)) from error
+    except RuntimeError as error:
+        raise HTTPException(status_code=502, detail=str(error)) from error
 
 
 @router.post("/municipios-similares")
@@ -127,8 +143,10 @@ def consultar_municipios_similares(payload: MunicipioRequest):
             departamento=payload.departamento,
             municipio=payload.municipio
         )
-    except Exception as error:
-        raise HTTPException(status_code=500, detail=str(error))
+    except ValueError as error:
+        raise HTTPException(status_code=422, detail=str(error)) from error
+    except RuntimeError as error:
+        raise HTTPException(status_code=502, detail=str(error)) from error
 
 
 @router.post("/recomendaciones")
@@ -138,5 +156,7 @@ def consultar_recomendaciones(payload: MunicipioRequest):
             departamento=payload.departamento,
             municipio=payload.municipio
         )
-    except Exception as error:
-        raise HTTPException(status_code=500, detail=str(error))
+    except ValueError as error:
+        raise HTTPException(status_code=422, detail=str(error)) from error
+    except RuntimeError as error:
+        raise HTTPException(status_code=502, detail=str(error)) from error

@@ -8,5 +8,4 @@ numpy
 pandas
 scikit-learn
 
-pyngrok
 python-dotenv

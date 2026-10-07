@@ -1,3 +1,4 @@
+from utils.normalizacion import valor_a_numero
 from typing import Any, Dict, List, Optional
 from collections import Counter
 
@@ -7,18 +8,7 @@ from services.socrata_service import (
     seleccionar_columna_por_patrones,
 )
 
-try:
-    from config import (
-        MAX_LIMIT,
-        DEFAULT_ANALYTIC_LIMIT,
-        MIN_LIMIT_MUNICIPAL,
-        MIN_LIMIT_DEPARTAMENTAL,
-    )
-except Exception:
-    MAX_LIMIT = 1_000_000
-    DEFAULT_ANALYTIC_LIMIT = 100_000
-    MIN_LIMIT_MUNICIPAL = 100_000
-    MIN_LIMIT_DEPARTAMENTAL = 500_000
+from config import MAX_LIMIT, DEFAULT_ANALYTIC_LIMIT, MIN_LIMIT_MUNICIPAL, MIN_LIMIT_DEPARTAMENTAL
 
 
 # ============================================================
@@ -37,29 +27,6 @@ def limpiar_valor(valor: Any) -> str:
     return texto
 
 
-def valor_a_numero(valor: Any) -> Optional[float]:
-    if valor is None:
-        return None
-
-    texto = str(valor).strip()
-
-    if texto == "":
-        return None
-
-    texto = texto.replace("%", "")
-    texto = texto.replace(".", "")
-    texto = texto.replace(",", ".")
-
-    permitido = "0123456789.-"
-    texto = "".join(c for c in texto if c in permitido)
-
-    if texto in ["", "-", ".", "-."]:
-        return None
-
-    try:
-        return float(texto)
-    except ValueError:
-        return None
 
 
 def resolver_limit_bachilleres(

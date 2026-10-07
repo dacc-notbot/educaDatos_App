@@ -1,43 +1,16 @@
-import re
-import unicodedata
 from typing import Any, Dict, List, Optional
 
 import requests
 
-try:
-    from config import DATASETS, MAX_LIMIT, DEFAULT_LIMIT
-except Exception:
-    DATASETS = {}
-    MAX_LIMIT = 1_000_000
-    DEFAULT_LIMIT = 100_000
-
-
-REQUEST_TIMEOUT = 60
+from config import DATASETS, MAX_LIMIT, DEFAULT_LIMIT, REQUEST_TIMEOUT
+from utils.normalizacion import normalizar_texto
+from utils.cache_datos import consultar_con_cache
 
 
 # ============================================================
 # Normalización y validaciones
 # ============================================================
 
-def normalizar_texto(valor: Any) -> str:
-    """
-    Normaliza textos para comparar sin depender de tildes, mayúsculas o signos.
-    Ejemplo: 'Villavicencio', 'villavicencio' y 'VILLAVICENCIO' se vuelven comparables.
-    """
-    if valor is None:
-        return ""
-
-    texto = str(valor).strip().lower()
-
-    texto = "".join(
-        c for c in unicodedata.normalize("NFKD", texto)
-        if not unicodedata.combining(c)
-    )
-
-    texto = re.sub(r"[^a-z0-9]+", " ", texto)
-    texto = re.sub(r"\s+", " ", texto).strip()
-
-    return texto
 
 
 def limpiar_texto_busqueda(valor: Optional[str]) -> Optional[str]:
@@ -136,9 +109,16 @@ def consultar_dataset(
             if valor is not None:
                 params[clave] = valor
 
+    return consultar_con_cache(
+        dataset["url"], params,
+        lambda: _descargar_dataset(dataset["url"], params, timeout),
+    )
+
+
+def _descargar_dataset(url: str, params: Dict[str, Any], timeout: int) -> List[Dict[str, Any]]:
     try:
         respuesta = requests.get(
-            dataset["url"],
+            url,
             params=params,
             timeout=timeout
         )
@@ -387,30 +367,23 @@ def seleccionar_columna_por_patrones(
     if not registros:
         return None
 
-    columnas = set()
-
-    for registro in registros[:200]:
-        columnas.update(registro.keys())
-
+    columnas = sorted({columna for registro in registros[:200] for columna in registro})
     patrones_norm = [normalizar_texto(p) for p in patrones]
     excluir_norm = [normalizar_texto(e) for e in excluir]
 
-    for columna in columnas:
-        nombre = normalizar_texto(columna)
+    def permitida(nombre):
+        return not any(
+            (nombre == e or nombre.startswith("id ") or nombre.endswith(" id"))
+            if e == "id" else e in nombre
+            for e in excluir_norm
+        )
 
-        coincide = any(p == nombre for p in patrones_norm)
-        excluida = any(e in nombre for e in excluir_norm)
-
-        if coincide and not excluida:
-            return columna
-
-    for columna in columnas:
-        nombre = normalizar_texto(columna)
-
-        coincide = any(p in nombre for p in patrones_norm)
-        excluida = any(e in nombre for e in excluir_norm)
-
-        if coincide and not excluida:
-            return columna
-
+    # Respetar primero la prioridad declarada, luego desempatar por nombre.
+    for exacta in (True, False):
+        for patron in patrones_norm:
+            for columna in columnas:
+                nombre = normalizar_texto(columna)
+                coincide = patron == nombre if exacta else patron in nombre
+                if coincide and permitida(nombre):
+                    return columna
     return None

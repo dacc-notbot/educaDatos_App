@@ -1,4 +1,16 @@
-# backend/config.py
+import os
+from pathlib import Path
+
+from dotenv import load_dotenv
+
+load_dotenv(Path(__file__).with_name(".env"), override=False)
+
+
+def entero_entorno(nombre: str, defecto: int, minimo: int = 1) -> int:
+    valor = int(os.getenv(nombre, str(defecto)))
+    if valor < minimo:
+        raise ValueError(f"{nombre} debe ser al menos {minimo}")
+    return valor
 
 # ============================================================
 # Configuración general del proyecto
@@ -15,8 +27,13 @@ PROJECT_DESCRIPTION = (
 
 # URL pública de la API.
 # Para pruebas locales puedes usar: http://127.0.0.1:8000
-# Para conectar con GPT o la app pública usa la URL pública de ngrok.
-PUBLIC_BASE_URL = "https://educadatos-889316352442.southamerica-west1.run.app"
+# Configura la URL definitiva al desplegar; desarrollo no requiere ngrok.
+PUBLIC_BASE_URL = os.getenv("PUBLIC_BASE_URL", "http://127.0.0.1:8000").rstrip("/")
+CORS_ORIGINS = [origen.strip() for origen in os.getenv("CORS_ORIGINS", "*").split(",") if origen.strip()]
+REQUEST_TIMEOUT = entero_entorno("REQUEST_TIMEOUT", 60)
+CACHE_TTL_SECONDS = entero_entorno("CACHE_TTL_SECONDS", 3600, minimo=0)
+CACHE_MAX_ENTRIES = entero_entorno("CACHE_MAX_ENTRIES", 64)
+CACHE_DIR = Path(os.getenv("EDUCADATOS_CACHE_DIR", "/tmp/educadatos-cache"))
 
 
 # ============================================================
@@ -24,28 +41,28 @@ PUBLIC_BASE_URL = "https://educadatos-889316352442.southamerica-west1.run.app"
 # ============================================================
 
 # Límite base para consultas analíticas.
-DEFAULT_LIMIT = 100_000
+DEFAULT_LIMIT = entero_entorno("DEFAULT_LIMIT", 100_000)
 
 # Máximo general permitido por la API.
-MAX_LIMIT = 1_000_000
+MAX_LIMIT = entero_entorno("MAX_LIMIT", 1_000_000)
 
 # Mínimos recomendados según escala territorial.
-MIN_LIMIT_MUNICIPAL = 100_000
-MIN_LIMIT_DEPARTAMENTAL = 500_000
+MIN_LIMIT_MUNICIPAL = entero_entorno("MIN_LIMIT_MUNICIPAL", 100_000)
+MIN_LIMIT_DEPARTAMENTAL = entero_entorno("MIN_LIMIT_DEPARTAMENTAL", 500_000)
 
 # Límite por defecto para chat, diagnóstico, cruce y clustering.
-DEFAULT_ANALYTIC_LIMIT = 100_000
+DEFAULT_ANALYTIC_LIMIT = entero_entorno("DEFAULT_ANALYTIC_LIMIT", 100_000)
 
 # Límites para consultas ligeras.
-PREVIEW_LIMIT = 10
-SEARCH_LIMIT = 1_000
+PREVIEW_LIMIT = entero_entorno("PREVIEW_LIMIT", 10)
+SEARCH_LIMIT = entero_entorno("SEARCH_LIMIT", 1_000)
 
 
 # ============================================================
 # Dataset base para análisis municipal y agrupación estadística
 # ============================================================
 
-DATASET_BASE = "estadisticas_municipio"
+DATASET_BASE = os.getenv("DATASET_BASE", "estadisticas_municipio")
 
 
 # ============================================================

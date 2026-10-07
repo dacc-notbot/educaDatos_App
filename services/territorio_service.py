@@ -1,11 +1,14 @@
 from typing import Any, Dict, List, Optional, Tuple
+import time
 
 from services.socrata_service import consultar_dataset, normalizar_texto
-from config import DATASET_BASE, DEFAULT_LIMIT
+from config import DATASET_BASE, DEFAULT_LIMIT, CACHE_TTL_SECONDS
 
 
 CACHE_TERRITORIOS = {
-    "catalogo": None
+    "catalogo": None,
+    "limit": None,
+    "vence": 0,
 }
 
 
@@ -57,7 +60,9 @@ def construir_catalogo_territorial(limit: int = DEFAULT_LIMIT) -> Dict[str, Any]
     Construye un catálogo nacional de departamentos y municipios desde el dataset base.
     Usa caché para evitar consultar y procesar el dataset en cada pregunta.
     """
-    if CACHE_TERRITORIOS["catalogo"] is not None:
+    if (CACHE_TERRITORIOS["catalogo"] is not None
+            and CACHE_TERRITORIOS["limit"] == limit
+            and CACHE_TERRITORIOS["vence"] > time.time()):
         return CACHE_TERRITORIOS["catalogo"]
 
     registros = consultar_dataset(
@@ -80,6 +85,8 @@ def construir_catalogo_territorial(limit: int = DEFAULT_LIMIT) -> Dict[str, Any]
         }
 
         CACHE_TERRITORIOS["catalogo"] = catalogo_vacio
+        CACHE_TERRITORIOS["limit"] = limit
+        CACHE_TERRITORIOS["vence"] = time.time() + CACHE_TTL_SECONDS
         return catalogo_vacio
 
     col_departamento = _buscar_columna_por_patrones(
@@ -147,6 +154,8 @@ def construir_catalogo_territorial(limit: int = DEFAULT_LIMIT) -> Dict[str, Any]
     }
 
     CACHE_TERRITORIOS["catalogo"] = catalogo
+    CACHE_TERRITORIOS["limit"] = limit
+    CACHE_TERRITORIOS["vence"] = time.time() + CACHE_TTL_SECONDS
 
     return catalogo
 

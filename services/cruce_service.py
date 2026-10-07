@@ -4,18 +4,7 @@ from services.bachilleres_service import consultar_bachilleres_service
 from services.programas_service import consultar_programas_superior_service
 from services.icetex_service import consultar_icetex_service
 
-try:
-    from config import (
-        MAX_LIMIT,
-        DEFAULT_ANALYTIC_LIMIT,
-        MIN_LIMIT_MUNICIPAL,
-        MIN_LIMIT_DEPARTAMENTAL,
-    )
-except Exception:
-    MAX_LIMIT = 1_000_000
-    DEFAULT_ANALYTIC_LIMIT = 100_000
-    MIN_LIMIT_MUNICIPAL = 100_000
-    MIN_LIMIT_DEPARTAMENTAL = 500_000
+from config import MAX_LIMIT, DEFAULT_ANALYTIC_LIMIT, MIN_LIMIT_MUNICIPAL, MIN_LIMIT_DEPARTAMENTAL
 
 
 # ============================================================
@@ -222,11 +211,14 @@ def construir_lectura_integrada(
         )
 
     if resumen_programas.get("ok"):
-        hallazgos.append(
-            f"En oferta de educación superior, se estimaron "
-            f"{formato_numero(total_programas or 0)} programas únicos en "
-            f"{formato_numero(total_instituciones or 0)} instituciones."
-        )
+        if total_programas is None:
+            hallazgos.append("La fuente de educación superior no permite un conteo confiable de programas únicos por inconsistencias de identificación.")
+        else:
+            hallazgos.append(
+                f"En oferta de educación superior, se estimaron "
+                f"{formato_numero(total_programas)} programas únicos en "
+                f"{formato_numero(total_instituciones or 0)} instituciones."
+            )
 
         if total_programas_activos is not None:
             hallazgos.append(

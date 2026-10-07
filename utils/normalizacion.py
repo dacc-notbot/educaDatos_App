@@ -1,4 +1,5 @@
 import re
+import math
 import unicodedata
 from typing import Any, List, Optional
 
@@ -55,18 +56,25 @@ def valor_a_numero(valor: Any) -> Optional[float]:
     if texto == "":
         return None
 
-    texto = texto.replace("%", "")
-    texto = texto.replace(".", "")
-    texto = texto.replace(",", ".")
-
-    permitido = "0123456789.-"
-    texto = "".join(c for c in texto if c in permitido)
-
-    if texto in ["", "-", ".", "-."]:
-        return None
+    # Socrata usa punto decimal; no convertir 56.11 en 5611.
+    texto = texto.removesuffix("%").replace(" ", "").replace("\u00a0", "")
+    texto = texto.removeprefix("COP").removeprefix("$")
+    if "," in texto and "." in texto:
+        if texto.rfind(",") > texto.rfind("."):
+            texto = texto.replace(".", "").replace(",", ".")
+        else:
+            texto = texto.replace(",", "")
+    elif "," in texto:
+        partes = texto.split(",")
+        texto = "".join(partes) if len(partes) > 2 and all(len(p) == 3 for p in partes[1:]) else texto.replace(",", ".")
+    elif texto.count(".") > 1:
+        partes = texto.split(".")
+        if all(len(p) == 3 for p in partes[1:]):
+            texto = "".join(partes)
 
     try:
-        return float(texto)
+        numero = float(texto)
+        return numero if math.isfinite(numero) else None
     except ValueError:
         return None
 

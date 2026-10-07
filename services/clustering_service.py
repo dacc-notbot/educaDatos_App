@@ -1,5 +1,7 @@
 import re
 import math
+import time
+from utils.normalizacion import valor_a_numero
 import unicodedata
 from datetime import datetime
 from typing import Any, Dict, List, Optional, Tuple
@@ -12,12 +14,7 @@ from sklearn.cluster import KMeans
 from sklearn.metrics import silhouette_score
 from sklearn.metrics.pairwise import euclidean_distances
 
-try:
-    from config import DATASET_BASE, DEFAULT_ANALYTIC_LIMIT, MAX_LIMIT
-except Exception:
-    DATASET_BASE = "estadisticas_municipio"
-    DEFAULT_ANALYTIC_LIMIT = 100_000
-    MAX_LIMIT = 1_000_000
+from config import DATASET_BASE, DEFAULT_ANALYTIC_LIMIT, MAX_LIMIT, CACHE_TTL_SECONDS, CACHE_MAX_ENTRIES
 
 from services.socrata_service import consultar_dataset
 
@@ -98,39 +95,8 @@ def resolver_limit_clustering(limit: Optional[int]) -> int:
 
 
 def valor_a_float(valor: Any) -> float:
-    if pd.isna(valor):
-        return np.nan
-
-    if isinstance(valor, (int, float, np.integer, np.floating)):
-        return float(valor)
-
-    texto = str(valor).strip()
-
-    if texto == "" or texto.lower() in ["nan", "none", "null", "sin dato", "nd", "n.d."]:
-        return np.nan
-
-    texto = texto.replace("%", "")
-    texto = re.sub(r"[^0-9,\.\-]", "", texto)
-
-    if texto in ["", "-", ".", ","]:
-        return np.nan
-
-    if "," in texto and "." in texto:
-        if texto.rfind(",") > texto.rfind("."):
-            texto = texto.replace(".", "").replace(",", ".")
-        else:
-            texto = texto.replace(",", "")
-    elif "," in texto and "." not in texto:
-        partes = texto.split(",")
-        if len(partes[-1]) <= 2:
-            texto = texto.replace(",", ".")
-        else:
-            texto = texto.replace(",", "")
-
-    try:
-        return float(texto)
-    except ValueError:
-        return np.nan
+    numero = valor_a_numero(valor)
+    return np.nan if numero is None else numero
 
 
 def serie_a_numerica(serie: pd.Series) -> pd.Series:
@@ -216,7 +182,7 @@ def detectar_columnas_base(df: pd.DataFrame) -> Dict[str, Optional[str]]:
 
     anio_col = buscar_columna(
         df,
-        ["anio", "ano", "año", "vigencia", "periodo", "year"],
+        ["a_o", "anio", "ano", "año", "vigencia", "periodo", "year"],
         excluir=["codigo", "cod", "id"]
     )
 
@@ -681,9 +647,13 @@ def guardar_pipeline_en_cache(
     resultado: Dict[str, Any],
     metadata: Dict[str, Any]
 ) -> None:
+    entradas = CACHE_CLUSTERING["pipelines"]
+    if cache_key not in entradas and len(entradas) >= CACHE_MAX_ENTRIES:
+        entradas.pop(next(iter(entradas)))
     CACHE_CLUSTERING["pipelines"][cache_key] = {
         "resultado": resultado,
-        "metadata": metadata
+        "metadata": metadata,
+        "vence": time.time() + CACHE_TTL_SECONDS,
     }
 
     CACHE_CLUSTERING["ultimo_resultado"] = resultado
@@ -694,7 +664,8 @@ def guardar_pipeline_en_cache(
 def obtener_pipeline_desde_cache(cache_key: str) -> Optional[Dict[str, Any]]:
     entrada = CACHE_CLUSTERING["pipelines"].get(cache_key)
 
-    if not entrada:
+    if not entrada or entrada["vence"] <= time.time():
+        CACHE_CLUSTERING["pipelines"].pop(cache_key, None)
         return None
 
     CACHE_CLUSTERING["ultimo_resultado"] = entrada["resultado"]
@@ -707,7 +678,8 @@ def obtener_pipeline_desde_cache(cache_key: str) -> Optional[Dict[str, Any]]:
 def obtener_metadata_desde_cache(cache_key: str) -> Optional[Dict[str, Any]]:
     entrada = CACHE_CLUSTERING["pipelines"].get(cache_key)
 
-    if not entrada:
+    if not entrada or entrada["vence"] <= time.time():
+        CACHE_CLUSTERING["pipelines"].pop(cache_key, None)
         return None
 
     return entrada["metadata"]

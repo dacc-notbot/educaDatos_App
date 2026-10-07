@@ -54,4 +54,10 @@ Thumbs.db
 # =========================
 backups/
 *_respaldo.py
+!scripts/sincronizar_respaldo.py
+!tests/test_respaldo.py
 history_*
+.pytest_cache/
+.ruff_cache/
+.cache/
+.backup-state.json

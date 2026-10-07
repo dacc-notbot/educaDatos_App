@@ -1,19 +1,6 @@
 from typing import Any, Dict, Optional, Tuple, List
 
-try:
-    from config import (
-        DEFAULT_ANALYTIC_LIMIT,
-        DEFAULT_LIMIT,
-        MAX_LIMIT,
-        MIN_LIMIT_MUNICIPAL,
-        MIN_LIMIT_DEPARTAMENTAL,
-    )
-except Exception:
-    DEFAULT_ANALYTIC_LIMIT = 100_000
-    DEFAULT_LIMIT = 100_000
-    MAX_LIMIT = 1_000_000
-    MIN_LIMIT_MUNICIPAL = 100_000
-    MIN_LIMIT_DEPARTAMENTAL = 500_000
+from config import DEFAULT_ANALYTIC_LIMIT, DEFAULT_LIMIT, MAX_LIMIT, MIN_LIMIT_MUNICIPAL, MIN_LIMIT_DEPARTAMENTAL
 
 from services.socrata_service import (
     buscar_en_dataset,

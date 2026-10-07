@@ -2,9 +2,13 @@ from typing import Any, Dict, Optional
 
 from fastapi import FastAPI, Query, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
-from pydantic import BaseModel
+from models.schemas import PreguntaRequest, MunicipioRequest
+from services.router_ciudadano import router as router_ciudadano
+from services.establecimientos_service import consultar_establecimientos_educativos_service
+from fastapi.responses import JSONResponse
+import logging
 
-from config import DATASETS, DATASET_BASE, PUBLIC_BASE_URL
+from config import DATASETS, DATASET_BASE, PUBLIC_BASE_URL, APP_VERSION, CORS_ORIGINS
 
 from services.socrata_service import (
     consultar_dataset,
@@ -39,13 +43,13 @@ app = FastAPI(
         "generar diagnósticos territoriales, analizar tránsito educativo y aplicar "
         "clustering municipal."
     ),
-    version="1.0.0",
+    version=APP_VERSION,
 )
 
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"],  # En producción puedes restringirlo a la URL real de la app.
-    allow_credentials=True,
+    allow_origins=CORS_ORIGINS,
+    allow_credentials=False,
     allow_methods=["*"],
     allow_headers=["*"],
 )
@@ -55,13 +59,17 @@ app.add_middleware(
 # Modelos de entrada
 # ============================================================
 
-class PreguntaRequest(BaseModel):
-    pregunta: str
+app.include_router(router_ciudadano)
 
 
-class MunicipioRequest(BaseModel):
-    departamento: str
-    municipio: str
+@app.exception_handler(RuntimeError)
+async def error_fuente_externa(request, error):
+    return JSONResponse(status_code=502, content={"detail": str(error)})
+
+
+@app.exception_handler(ValueError)
+async def error_consulta(request, error):
+    return JSONResponse(status_code=422, content={"detail": str(error)})
 
 
 # ============================================================
@@ -144,12 +152,6 @@ def adaptar_respuesta_para_app(resultado: Dict[str, Any]) -> Dict[str, Any]:
         or []
     )
 
-    resultado_completo = resultado.get("resultados", {}) or {}
-
-    datos_servicio = {}
-
-    if isinstance(resultado_completo, dict):
-        datos_servicio = resultado_completo.get("datos", {}) or {}
     resultado_completo = resultado.get("resultados", {}) or {}
 
     datos_servicio = {}
@@ -483,34 +485,12 @@ def chat_ciudadano(request: PreguntaRequest):
         return adaptar_respuesta_para_app(resultado)
 
     except ValueError as error:
-        return {
-            "pregunta": pregunta,
-            "respuesta": (
-                "No pude procesar la consulta porque falta información o porque "
-                "el dataset solicitado no está disponible."
-            ),
-            "datos": {},
-            "fuentes": [],
-            "advertencias": [str(error)],
-        }
-
+        raise HTTPException(status_code=422, detail=str(error)) from error
     except RuntimeError as error:
-        return {
-            "pregunta": pregunta,
-            "respuesta": "No pude consultar datos.gov.co en este momento.",
-            "datos": {},
-            "fuentes": [],
-            "advertencias": [str(error)],
-        }
-
+        raise HTTPException(status_code=502, detail=str(error)) from error
     except Exception as error:
-        return {
-            "pregunta": pregunta,
-            "respuesta": "Ocurrió un error inesperado al procesar la consulta educativa.",
-            "datos": {},
-            "fuentes": [],
-            "advertencias": [str(error)],
-        }
+        logging.exception("Error procesando consulta ciudadana")
+        raise HTTPException(status_code=500, detail="No fue posible procesar la consulta educativa.") from error
 
 
 # ============================================================
@@ -857,53 +837,26 @@ def generar_recomendaciones_municipio(
 
 @app.get("/colegios", operation_id="consultarColegiosAlias")
 def colegios_por_municipio(
-    departamento: str = Query(
-        ...,
-        description="Departamento. Ejemplo: Meta.",
-    ),
-    municipio: Optional[str] = Query(
-        None,
-        description="Municipio. Ejemplo: Villavicencio.",
-    ),
-    limit: int = Query(
-        1000,
-        ge=1,
-        le=5000,
-    ),
+    departamento: str = Query(..., min_length=1),
+    municipio: Optional[str] = Query(None),
+    sector: Optional[str] = Query(None, description="oficial, no oficial o privado"),
+    limit: int = Query(1000, ge=1, le=5000),
 ):
-    try:
-        resultado = buscar_en_dataset(
-            dataset_key="establecimientos_educativos",
-            texto=municipio or departamento,
-            departamento=departamento,
-            municipio=municipio,
-            limit=limit,
-        )
+    resultado = consultar_establecimientos_educativos_service(
+        departamento=departamento,
+        municipio=municipio,
+        sector=sector,
+        limit=limit,
+    )
+    return {
+        "departamento": departamento,
+        "municipio": municipio,
+        "respuesta": resultado["respuesta_corta"],
+        "datos": resultado["datos"],
+        "fuentes": [fuente["url"] for fuente in resultado.get("fuentes_usadas", [])],
+        "advertencias": resultado.get("limitaciones", []),
+    }
 
-        return {
-            "departamento": departamento,
-            "municipio": municipio,
-            "respuesta": (
-                f"Se consultaron establecimientos educativos para "
-                f"{municipio or departamento}. Se encontraron "
-                f"{resultado.get('total_resultados', 0)} registros relacionados."
-            ),
-            "datos": resultado,
-            "fuentes": [
-                "MEN - Establecimientos educativos de preescolar, básica y media",
-                "https://www.datos.gov.co/resource/cfw5-qzt5.json",
-            ],
-            "advertencias": [
-                "El conteo corresponde a registros encontrados; no necesariamente equivale a establecimientos únicos.",
-                "Para conteos únicos por código DANE conviene implementar un servicio especializado de establecimientos.",
-            ],
-        }
-
-    except ValueError as error:
-        raise HTTPException(status_code=404, detail=str(error))
-
-    except RuntimeError as error:
-        raise HTTPException(status_code=502, detail=str(error))
 
 @app.get("/territorios/catalogo", operation_id="obtenerCatalogoTerritorial")
 def obtener_catalogo_territorial(
@@ -1019,7 +972,7 @@ def generar_openapi_para_gpt():
                 "realizar diagnóstico territorial, analizar tránsito educativo y aplicar "
                 "clustering municipal."
             ),
-            "version": "1.0.0",
+            "version": APP_VERSION,
         },
         "servers": [
             {
