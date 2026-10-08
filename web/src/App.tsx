@@ -7,6 +7,7 @@ import {
 } from "react";
 import {
   consultar,
+  consultarProgramas,
   ErrorConsulta,
   mostrarValor,
   type Registro,
@@ -14,6 +15,7 @@ import {
 } from "./api";
 import ListaColegios from "./ListaColegios";
 import TablaDatos from "./TablaDatos";
+import ExploradorSuperior from "./ExploradorSuperior";
 import OfertaSuperior from "./OfertaSuperior";
 import ResumenIcetex from "./ResumenIcetex";
 
@@ -88,7 +90,7 @@ function Icono({
   );
 }
 
-function Resultados({ resultado, elegirPregunta, buscar }: { resultado: Respuesta; elegirPregunta: (pregunta: string) => void; buscar: (pregunta: string) => void }) {
+function Resultados({ resultado, elegirPregunta, buscar }: { resultado: Respuesta; elegirPregunta: (pregunta: string) => void; buscar: (pregunta: string, parametros?: Registro) => void }) {
   const detalle = resultado.datos.detalle_consulta as Registro | undefined;
   const esColegios = !!detalle && Array.isArray(detalle.lista_establecimientos);
   const esIcetex = !!detalle?.visualizacion_icetex || Array.isArray(detalle?.comparacion_icetex);
@@ -111,7 +113,7 @@ function Resultados({ resultado, elegirPregunta, buscar }: { resultado: Respuest
     ["anio_usado", "Año de los datos"],
     ["vigencia_mas_reciente", "Año de los datos"],
   ];
-  const visibles = (esIcetex ? [] : indicadores).filter(
+  const visibles = (esIcetex || esSuperior ? [] : indicadores).filter(
     ([clave]) => detalle && Object.hasOwn(detalle, clave) && !(clave === "anio_usado" && Object.hasOwn(detalle, "vigencia_mas_reciente")) && !(clave === "total_programas_unicos" && detalle.identificacion_programas_confiable === false),
   );
   const sugerencias = Array.isArray(
@@ -160,7 +162,8 @@ function Resultados({ resultado, elegirPregunta, buscar }: { resultado: Respuest
       {esIcetex && <ResumenIcetex detalle={detalle!} buscar={buscar} pregunta={resultado.pregunta} />}
       {!esIcetex && Array.isArray(resultado.datos.resumenes_icetex) && resultado.datos.resumenes_icetex.length > 0 && <ResumenIcetex
         detalle={{ comparacion_icetex: resultado.datos.resumenes_icetex }} buscar={buscar} pregunta="ICETEX" />}
-      {!esColegios && !esIcetex && <TablaDatos datos={resultado.datos} />}
+      {esSuperior && <ExploradorSuperior detalle={detalle!} />}
+      {!esColegios && !esIcetex && !esSuperior && <TablaDatos datos={resultado.datos} />}
       {fuentes.length > 0 && (
         <div className="fuentes">
           <h3>De dónde viene esta información</h3>
@@ -218,7 +221,7 @@ export default function App() {
     event.preventDefault();
     await ejecutarConsulta(pregunta);
   }
-  async function ejecutarConsulta(texto: string) {
+  async function ejecutarConsulta(texto: string, parametros?: Registro) {
     if (pendiente || espera > 0 || !texto.trim()) return;
     if (texto.trim().length > 2000) {
       setError("Tu pregunta debe tener hasta 2000 caracteres.");
@@ -232,7 +235,7 @@ export default function App() {
     solicitud.current = controller;
     const timer = window.setTimeout(() => controller.abort(), 180000);
     try {
-      const respuesta = await consultar(texto.trim(), controller.signal);
+      const respuesta = parametros ? await consultarProgramas(parametros, controller.signal, texto.trim()) : await consultar(texto.trim(), controller.signal);
       if (activo.current) setResultado(respuesta);
     } catch (e) {
       if (activo.current) {

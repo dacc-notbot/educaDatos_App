@@ -1,6 +1,18 @@
 from typing import Any, Dict, List, Optional, Set
 from collections import Counter
+import json
 from services.busqueda_programas import coincide_nombre
+from services.procedencia_oferta_service import (
+    construir_procedencia_oferta,
+    seleccionar_registro_reciente,
+)
+from services.resumen_oferta_service import (
+    SIN_INFORMACION,
+    ciclo_publicado,
+    construir_resumen_oferta,
+    estado_publicado,
+    valor_publicado,
+)
 
 from services.socrata_service import (
     consultar_dataset,
@@ -27,7 +39,7 @@ def limpiar_valor(valor: Any) -> str:
 
     texto = str(valor).strip()
 
-    if texto.lower() in ["none", "null", "nan", ""]:
+    if normalizar_texto(texto) in ["none", "null", "nan", "", "na", "n a", "sin dato"]:
         return ""
 
     return texto
@@ -183,7 +195,7 @@ def contar_unicos(
 
 
 def distribucion_por_columna(
-    registros: List[Dict[str, Any]], columna: Optional[str], top_n: int = 10
+    registros: List[Dict[str, Any]], columna: Optional[str], top_n: Optional[int] = None
 ) -> List[Dict[str, Any]]:
     if not registros or not columna:
         return []
@@ -221,6 +233,10 @@ def construir_muestra_programas(
     col_departamento: Optional[str],
     col_titulo: Optional[str] = None,
     max_items: Optional[int] = 10,
+    col_ciclo: Optional[str] = None,
+    col_sede: Optional[str] = None,
+    col_codigo_programa: Optional[str] = None,
+    col_codigo_institucion: Optional[str] = None,
 ) -> List[Dict[str, Any]]:
     """
     Construye una muestra legible para ciudadanía.
@@ -244,20 +260,30 @@ def construir_muestra_programas(
             limpiar_valor(registro.get(col_institucion)) if col_institucion else ""
         )
 
-        if not programa and not institucion:
-            continue
-
         clave = tuple(
-            normalizar_texto(registro.get(columna)) if columna else ""
+            normalizar_texto(
+                estado_publicado(registro.get(columna))
+                if columna == col_estado
+                else limpiar_valor(registro.get(columna))
+            ) if columna else ""
             for columna in (
+                col_codigo_programa,
                 col_programa or col_titulo,
+                col_codigo_institucion,
                 col_institucion,
                 col_estado,
                 col_nivel,
                 col_municipio,
+                col_departamento,
                 col_metodologia,
+                col_ciclo,
+                col_sede,
             )
         )
+        if not programa and not institucion:
+            # Sin identificación no combina ofertas distintas solo porque
+            # comparten campos vacíos. Únicamente retira duplicados completos.
+            clave = ("sin_identificacion", json.dumps(registro, sort_keys=True, default=str))
 
         if clave in vistos:
             continue
@@ -269,23 +295,31 @@ def construir_muestra_programas(
         if programa:
             item["programa" if col_programa else "titulo_obtenido"] = programa
 
-        if institucion:
-            item["institucion"] = institucion
+        item["institucion"] = institucion or SIN_INFORMACION
 
-        if col_estado:
-            estado = limpiar_valor(registro.get(col_estado))
-            if estado:
-                item["estado"] = estado
+        if col_codigo_programa:
+            codigo = limpiar_valor(registro.get(col_codigo_programa))
+            if codigo:
+                item["codigo_programa"] = codigo
 
-        if col_nivel:
-            nivel = limpiar_valor(registro.get(col_nivel))
-            if nivel:
-                item["nivel"] = nivel
+        if col_codigo_institucion:
+            codigo = limpiar_valor(registro.get(col_codigo_institucion))
+            if codigo:
+                item["codigo_institucion"] = codigo
 
-        if col_metodologia:
-            metodologia = limpiar_valor(registro.get(col_metodologia))
-            if metodologia:
-                item["metodologia_modalidad"] = metodologia
+        item["estado"] = estado_publicado(registro.get(col_estado))
+
+        item["nivel"] = valor_publicado(registro.get(col_nivel))
+
+        metodologia = valor_publicado(registro.get(col_metodologia))
+        item["metodologia_modalidad"] = metodologia
+        item["modalidad"] = metodologia
+        item["ciclo"] = ciclo_publicado(registro.get(col_ciclo), item["nivel"])
+
+        if col_sede:
+            sede = limpiar_valor(registro.get(col_sede))
+            if sede:
+                item["sede"] = sede
 
         if col_area:
             area = limpiar_valor(registro.get(col_area))
@@ -344,11 +378,6 @@ def consultar_programas_superior_service(
     porque $q puede traer una muestra parcial. En ese caso descarga más registros
     y filtra localmente.
     """
-    if not departamento and not municipio and not texto:
-        raise ValueError(
-            "Debes indicar un departamento, municipio o texto de búsqueda para consultar programas de educación superior."
-        )
-
     limit_final = resolver_limit_programas(
         departamento=departamento, municipio=municipio, texto=texto, limit=limit
     )
@@ -359,6 +388,9 @@ def consultar_programas_superior_service(
     registros = consultar_dataset(
         dataset_key="programas_superior", limit=limit_final, q=q_inicial
     )
+    total_descargado = len(registros)
+    registros, anio_registro = seleccionar_registro_reciente(registros)
+    procedencia = construir_procedencia_oferta(anio_registro)
 
     fuente = {
         "dataset_key": "programas_superior",
@@ -389,7 +421,8 @@ def consultar_programas_superior_service(
                 "q_inicial": q_inicial,
                 "total_registros_descargados": 0,
                 "total_registros": 0,
-                "total_programas_unicos": 0,
+                "total_programas_unicos": None,
+                "identificacion_programas_confiable": False,
                 "total_programas_activos_unicos": None,
                 "total_instituciones_unicas": 0,
                 "distribucion_nivel": [],
@@ -400,6 +433,10 @@ def consultar_programas_superior_service(
                 "programas_frecuentes": [],
                 "columnas_detectadas": {},
                 "muestra_programas": [],
+                "lista_oferta": [],
+                "resumen_oferta": construir_resumen_oferta([]),
+                "procedencia_oferta": procedencia,
+                "consulta_completa": total_descargado < limit_final,
             },
             "fuentes_usadas": [fuente],
             "limitaciones": [
@@ -514,6 +551,9 @@ def consultar_programas_superior_service(
             "modalidad",
         ],
     )
+    col_codigo_institucion = seleccionar_columna_por_patrones(
+        registros, ["codigoinstitucion", "codigo_institucion", "codigo_ies"]
+    )
 
     col_titulo = seleccionar_columna_por_patrones(
         registros, ["nombretituloobtenido", "titulo_obtenido"]
@@ -555,6 +595,12 @@ def consultar_programas_superior_service(
             "nivel",
         ],
         excluir=["codigo", "cod", "id"],
+    )
+    col_ciclo = seleccionar_columna_por_patrones(
+        registros, ["nombrenivelacademico", "ciclo_academico", "ciclo"]
+    )
+    col_sede = seleccionar_columna_por_patrones(
+        registros, ["nombresede", "nombre_sede", "codigosede", "codigo_sede", "sede"]
     )
 
     col_metodologia = seleccionar_columna_por_patrones(
@@ -615,7 +661,7 @@ def consultar_programas_superior_service(
             r
             for r in registros_filtrados
             if col_estado
-            and normalizar_texto(r.get(col_estado)) == normalizar_texto(estado)
+            and normalizar_texto(estado_publicado(r.get(col_estado))) == normalizar_texto(estado)
         ]
 
     total_registros = len(registros_filtrados)
@@ -643,36 +689,8 @@ def consultar_programas_superior_service(
         total_programas_unicos = None
         total_programas_activos_unicos = None
 
-    distribucion_nivel = distribucion_por_columna(registros_filtrados, col_nivel)
-
-    distribucion_metodologia = distribucion_por_columna(
-        registros_filtrados, col_metodologia
-    )
-
-    distribucion_area = distribucion_por_columna(registros_filtrados, col_area)
-
-    distribucion_estado = distribucion_por_columna(registros_filtrados, col_estado)
-
-    instituciones_frecuentes = distribucion_por_columna(
-        registros_filtrados, col_institucion, top_n=10
-    )
-
     programas_frecuentes = distribucion_por_columna(
         registros_filtrados, col_programa, top_n=10
-    )
-
-    muestra = construir_muestra_programas(
-        registros=registros_filtrados,
-        col_programa=col_programa,
-        col_institucion=col_institucion,
-        col_estado=col_estado,
-        col_nivel=col_nivel,
-        col_metodologia=col_metodologia,
-        col_area=col_area,
-        col_municipio=col_municipio,
-        col_departamento=col_departamento,
-        col_titulo=col_titulo,
-        max_items=10,
     )
 
     lista_oferta = construir_muestra_programas(
@@ -687,7 +705,32 @@ def consultar_programas_superior_service(
         col_departamento=col_departamento,
         col_titulo=col_titulo,
         max_items=None,
+        col_ciclo=col_ciclo,
+        col_sede=col_sede,
+        col_codigo_programa=col_codigo_programa,
+        col_codigo_institucion=col_codigo_institucion,
     )
+    muestra = lista_oferta[:10]
+    resumen_oferta = construir_resumen_oferta(lista_oferta)
+    # Estas distribuciones conservan el contrato anterior, pero ahora usan la
+    # misma unidad deduplicada del listado, sin limitar niveles o instituciones.
+    distribucion_nivel = [
+        {"valor": fila["nivel"], "conteo": fila["total"]}
+        for fila in resumen_oferta["por_nivel"]
+    ]
+    distribucion_metodologia = [
+        {"valor": fila["modalidad"], "conteo": fila["total"]}
+        for fila in resumen_oferta["por_modalidad"]
+    ]
+    distribucion_estado = [
+        {"valor": fila["estado"], "conteo": fila["total"]}
+        for fila in resumen_oferta["por_estado"]
+    ]
+    instituciones_frecuentes = [
+        {"valor": fila["institucion"], "conteo": fila["total_ofertas"]}
+        for fila in resumen_oferta["instituciones"]
+    ]
+    distribucion_area = distribucion_por_columna(lista_oferta, "area_conocimiento")
 
     territorio = municipio or departamento or texto or "el filtro consultado"
 
@@ -695,7 +738,7 @@ def consultar_programas_superior_service(
     if texto:
         respuesta_corta = (
             f"Encontré {len(lista_oferta)} ofertas relacionadas con «{texto}» en {total_instituciones_unicas} instituciones de {alcance}. "
-            "El listado muestra el título otorgado, la institución, el nivel académico y el estado reportado."
+            "Puedes ver la institución, el nivel académico, la modalidad y el estado de cada oferta."
         )
     else:
         cantidad = (
@@ -712,11 +755,11 @@ def consultar_programas_superior_service(
     if not lista_oferta:
         respuesta_corta = f"No encontré ofertas relacionadas con «{texto or territorio}». Prueba con otra parte del nombre o cambia el territorio."
     advertencia_identificacion = (
-        "La fuente presenta una inconsistencia en los nombres de programas. "
-        "La búsqueda muestra títulos otorgados; no permite contar programas únicos."
+        "Los nombres de programas presentan una inconsistencia en la fuente. "
+        "Por eso se muestran los títulos otorgados y se cuentan ofertas publicadas, no programas únicos."
     )
     hallazgos = []
-    consulta_completa = len(registros) < limit_final
+    consulta_completa = total_descargado < limit_final
 
     return {
         "tipo_consulta": "programas_superior",
@@ -730,13 +773,16 @@ def consultar_programas_superior_service(
         "datos": {
             "limit_usado": limit_final,
             "q_inicial": q_inicial,
-            "total_registros_descargados": len(registros),
+            "total_registros_descargados": total_descargado,
             "total_registros": total_registros,
             "total_programas_unicos": total_programas_unicos,
             "identificacion_programas_confiable": identificacion_confiable,
             "total_titulos_distintos": total_titulos_distintos,
             "total_programas_activos_unicos": total_programas_activos_unicos,
             "total_instituciones_unicas": total_instituciones_unicas,
+            "total_ofertas": len(lista_oferta),
+            "resumen_oferta": resumen_oferta,
+            "procedencia_oferta": procedencia,
             "distribucion_nivel": distribucion_nivel,
             "distribucion_metodologia": distribucion_metodologia,
             "distribucion_area": distribucion_area,
@@ -753,6 +799,8 @@ def consultar_programas_superior_service(
                 "estado": col_estado,
                 "nivel": col_nivel,
                 "metodologia": col_metodologia,
+                "ciclo": col_ciclo,
+                "sede": col_sede,
                 "area": col_area,
             },
             "municipios_departamento_usados_para_filtrar": (
@@ -769,11 +817,8 @@ def consultar_programas_superior_service(
         },
         "fuentes_usadas": [fuente],
         "limitaciones": [
-            "El conteo corresponde a registros disponibles en datos.gov.co y puede variar según actualización del dataset.",
-            "Un mismo programa puede aparecer varias veces por sede, modalidad, municipio, nivel o institución.",
-            "Si el dataset no trae una columna clara de departamento, el filtro departamental se apoya en los municipios del catálogo territorial.",
-            "La información debe verificarse con SNIES, la institución educativa o el MEN antes de tomar decisiones académicas.",
-            "La presencia de programas activos o inactivos depende de la columna de estado detectada en el dataset.",
+            "Una oferta se distingue por su institución, municipio, nivel, modalidad y estado; el mismo título puede tener varias ofertas.",
+            "Activo e inactivo corresponden al estado publicado por el Gobierno; confirma las inscripciones con la institución.",
             *([advertencia_identificacion] if not identificacion_confiable else []),
             *(
                 [

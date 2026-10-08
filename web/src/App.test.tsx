@@ -69,36 +69,47 @@ it("la orientación ofrece preguntas editables sin enviarlas automáticamente", 
   expect(fetchMock).toHaveBeenCalledTimes(1);
 });
 
-it("presenta educación superior con estados y niveles, y filtra ofertas sin cifras técnicas", async () => {
+it("presenta modalidad y estados por nivel, y busca por ubicación explícita sin confundir municipios", async () => {
   const filas = [
-    { titulo_obtenido: "INGENIERO DE SISTEMAS", institucion: "Universidad A", nivel: "Universitaria", estado: "Activo" },
-    { titulo_obtenido: "INGENIERO DE SISTEMAS", institucion: "Universidad B", nivel: "Universitaria", estado: "Inactivo" },
+    { titulo_obtenido: "INGENIERO DE SISTEMAS", institucion: "Universidad A", nivel: "Universitaria", ciclo: "Pregrado", estado: "Activo", modalidad: "Presencial", metodologia_modalidad: "Presencial" },
+    { titulo_obtenido: "INGENIERO DE SISTEMAS", institucion: "Universidad B", nivel: "Universitaria", ciclo: "Pregrado", estado: "Inactivo", modalidad: "Virtual", metodologia_modalidad: "Virtual" },
   ];
-  const fetchMock = vi.fn().mockResolvedValueOnce(new Response(JSON.stringify({ respuesta: "En Meta se reportan títulos de educación superior en dos instituciones.", datos: {
-    detalle_consulta: { lista_oferta: filas, territorio: { departamento: "Meta" }, identificacion_programas_confiable: false,
+  const datos = {
+    detalle_consulta: { lista_oferta: filas, territorio: { departamento: "Meta" }, consulta_completa: true, identificacion_programas_confiable: false,
       total_programas_unicos: null, total_titulos_distintos: 1,
-      distribucion_estado: [{ valor: "Activo", conteo: 1 }, { valor: "Inactivo", conteo: 1 }],
-      distribucion_nivel: [{ valor: "Universitaria", conteo: 2 }],
+      procedencia_oferta: { anio_registro: null, fecha_actualizacion: "2025-01-14", descripcion_ciudadana: "Información del MEN en Datos Abiertos del Gobierno de Colombia. Última actualización de los datos: 14 de enero de 2025." },
+      resumen_oferta: { unidad_conteo: "ofertas publicadas", total_ofertas: 2, por_estado: [{ estado: "Activo", total: 1 }, { estado: "Inactivo", total: 1 }],
+        por_nivel: [{ nivel: "Universitaria", total: 2, activos: 1, inactivos: 1, sin_estado: 0 }],
+        por_modalidad: [{ modalidad: "Presencial", total: 1, activos: 1, inactivos: 0, sin_estado: 0 }, { modalidad: "Virtual", total: 1, activos: 0, inactivos: 1, sin_estado: 0 }],
+        por_ciclo: [{ ciclo: "Pregrado", total: 2, activos: 1, inactivos: 1, sin_estado: 0 }],
+        instituciones: [{ institucion: "Universidad A", total_ofertas: 1, activos: 1, inactivos: 0, sin_estado: 0 }, { institucion: "Universidad B", total_ofertas: 1, activos: 0, inactivos: 1, sin_estado: 0 }],
+      },
     },
-    colecciones: [{ titulo: "Oferta de educación superior", filas, es_muestra: false }],
-  } }), { status: 200 })).mockResolvedValueOnce(new Response(JSON.stringify({ respuesta: "Arquitectura en Colombia." }), { status: 200 }));
+  };
+  const fetchMock = vi.fn().mockResolvedValueOnce(new Response(JSON.stringify({ respuesta: "Oferta de educación superior en Meta.", datos }), { status: 200 }))
+    .mockResolvedValueOnce(new Response(JSON.stringify({ departamentos: [{ departamento: "Meta", municipios: [{ municipio: "Villavicencio" }, { municipio: "Acacías" }] }], fuente: "MEN", anio: 2024 }), { status: 200 }))
+    .mockResolvedValueOnce(new Response(JSON.stringify({ respuesta: "Arquitectura en Colombia." }), { status: 200 }));
   vi.stubGlobal("fetch", fetchMock);
   render(<App />);
-  preguntar("¿Qué títulos de educación superior se reportan en Meta?");
-  await screen.findByRole("table", { name: "Oferta de educación superior" });
-  expect(screen.getByText("Estado reportado")).toBeTruthy();
-  expect(screen.getByRole("columnheader", { name: "Nivel académico" })).toBeTruthy();
-  expect(screen.getByRole("columnheader", { name: "Estado" })).toBeTruthy();
+  preguntar("Educación superior en Meta");
+  await screen.findByRole("list", { name: "Oferta de educación superior" });
+  await screen.findByRole("button", { name: "Ver los 2 municipios de Meta" });
+  expect(screen.getByRole("table", { name: "Oferta por nivel" })).toBeTruthy();
+  expect(screen.getByRole("columnheader", { name: "Activas" })).toBeTruthy();
+  expect(screen.getByRole("columnheader", { name: "Inactivas" })).toBeTruthy();
+  expect(screen.getByText(/14 de enero de 2025/)).toBeTruthy();
+  expect(screen.queryByText(/no permite identificar de forma fiable/)).toBeNull();
   expect(screen.queryByText("Programas únicos")).toBeNull();
-  expect(screen.queryByText(/Registros descargados/)).toBeNull();
-  fireEvent.change(screen.getByLabelText("Estado", { selector: "select" }), { target: { value: "Inactivo" } });
-  expect(screen.getByText("Universidad B")).toBeTruthy();
-  expect(screen.queryByText("Universidad A")).toBeNull();
+  fireEvent.change(screen.getByLabelText("Estado de la oferta"), { target: { value: "Inactivo" } });
+  expect(screen.getByRole("list", { name: "Oferta de educación superior" }).textContent).toContain("Universidad B");
+  expect(screen.getByRole("list", { name: "Oferta de educación superior" }).textContent).not.toContain("Universidad A");
+  expect(screen.getByRole("list", { name: "Oferta de educación superior" }).textContent).toContain("Virtual");
   fireEvent.change(screen.getByLabelText("¿Qué programa o título buscas?"), { target: { value: "Arquitectura" } });
-  fireEvent.change(screen.getByLabelText("Dónde buscar"), { target: { value: "nacional" } });
-  fireEvent.click(screen.getByRole("button", { name: "Buscar programa" }));
+  fireEvent.click(screen.getByRole("button", { name: "Toda Colombia" }));
+  fireEvent.click(screen.getByRole("button", { name: /Explorar oferta/ }));
   await screen.findByText("Arquitectura en Colombia.");
-  expect(JSON.parse(fetchMock.mock.calls[1][1].body)).toEqual({ pregunta: 'Programa "Arquitectura" en Colombia' });
+  expect(fetchMock.mock.calls[2][0]).toBe("/api/programas-superior");
+  expect(JSON.parse(fetchMock.mock.calls[2][1].body)).toEqual({ texto: "Arquitectura" });
 });
 
 function preguntar(texto = "Colegios en Soacha") {

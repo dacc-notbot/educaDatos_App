@@ -1,4 +1,45 @@
 export type Registro = Record<string, unknown>;
+export type CatalogoTerritorios = {
+  departamentos: Array<{ departamento: string; municipios: Array<{ municipio: string; codigo?: string }> }>;
+  fuente: string;
+  anio: number | null;
+};
+
+export async function consultarTerritorios(signal: AbortSignal): Promise<CatalogoTerritorios> {
+  const base = (import.meta.env.VITE_API_BASE_URL || (import.meta.env.DEV ? "/api" : "")).trim().replace(/\/$/, "");
+  if (!base) throw new ErrorConsulta("La lista de municipios no está disponible en este momento.");
+  let respuesta: Response;
+  try {
+    respuesta = await fetch(`${base}/territorios`, { signal });
+  } catch {
+    throw new ErrorConsulta(signal.aborted
+      ? "La lista de municipios tardó demasiado en cargar. Puedes volver a intentarlo."
+      : "No pudimos cargar los municipios. Comprueba tu conexión y vuelve a intentarlo.");
+  }
+  if (respuesta.status === 503) throw new ErrorConsulta(
+    "La lista de municipios está ocupada. Vuelve a intentarlo en unos segundos.",
+    esperaDeReintento(respuesta.headers.get("Retry-After")),
+  );
+  if (!respuesta.ok) throw new ErrorConsulta("No pudimos cargar la lista de municipios desde la fuente oficial. Vuelve a intentarlo.");
+  let datos: unknown;
+  try { datos = await respuesta.json(); } catch { throw new ErrorConsulta("No pudimos leer la lista de municipios. Vuelve a intentarlo."); }
+  if (!datos || typeof datos !== "object" || !("departamentos" in datos)
+    || !Array.isArray(datos.departamentos) || !datos.departamentos.length
+    || !("fuente" in datos) || typeof datos.fuente !== "string"
+    || !("anio" in datos) || !(datos.anio === null || Number.isInteger(datos.anio))) {
+    throw new ErrorConsulta("La lista de municipios está incompleta. Vuelve a intentarlo.");
+  }
+  for (const departamento of datos.departamentos) {
+    if (!departamento || typeof departamento !== "object" || typeof departamento.departamento !== "string"
+      || !departamento.departamento.trim() || !Array.isArray(departamento.municipios) || !departamento.municipios.length
+      || departamento.municipios.some((municipio: unknown) => !municipio || typeof municipio !== "object"
+        || !("municipio" in municipio) || typeof municipio.municipio !== "string" || !municipio.municipio.trim())) {
+      throw new ErrorConsulta("La lista de municipios está incompleta. Vuelve a intentarlo.");
+    }
+  }
+  return datos as CatalogoTerritorios;
+}
+
 export type Respuesta = {
   pregunta: string;
   respuesta: string;
@@ -36,6 +77,13 @@ export async function consultar(
   signal: AbortSignal,
 ): Promise<Respuesta> {
   return solicitar("/chat", { pregunta }, signal, pregunta);
+}
+
+export async function consultarProgramas(
+  parametros: Registro, signal: AbortSignal, pregunta: string,
+): Promise<Respuesta> {
+  const respuesta = await solicitar("/programas-superior", parametros, signal, pregunta);
+  return { ...respuesta, pregunta };
 }
 
 export async function consultarColegios(

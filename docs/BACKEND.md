@@ -147,19 +147,53 @@ específico. Sin territorio la búsqueda es nacional; por ciudad/departamento us
 los campos territoriales de la oferta reportada. La ruta estructurada admite
 `estado: "Activo"` o `"Inactivo"`.
 
-`lista_oferta` conserva títulos, institución, estado, nivel, territorio y modalidad.
-La deduplicación usa esos campos juntos: el mismo título en otra institución,
-ciudad, nivel, modalidad o estado conserva su entrada. `muestra_programas` continúa
+`lista_oferta` conserva títulos, institución, estado, nivel, territorio, modalidad,
+ciclo de formación y sede cuando están informados. La deduplicación usa esos campos
+juntos y los identificadores fiables: el mismo título en otra institución,
+ciudad, nivel, modalidad, ciclo, sede o estado conserva su entrada. `muestra_programas` continúa
 como campo de compatibilidad, pero no limita el nuevo listado a diez filas.
 Si la descarga alcanza su límite, la respuesta marca que puede ser parcial.
 
 La fuente upr9-nkiz sigue teniendo nombres y códigos de programas inconsistentes.
 El conteo de programas únicos permanece en null; la respuesta principal se centra
-en los títulos e instituciones y las distribuciones de estados/niveles. La advertencia
+en las ofertas e instituciones reportadas. `resumen_oferta`, preparado por
+`services/resumen_oferta_service.py`, usa la lista deduplicada como única unidad de
+conteo: `total_ofertas`, `por_estado`, `por_nivel`, `por_modalidad`, `por_ciclo` e
+`instituciones`. Cada agrupación distingue total, activos, inactivos y sin estado
+informado. Todas las instituciones tienen su propio desglose de modalidades,
+niveles y ciclos; no se limita a diez instituciones. Las distribuciones anteriores
+se conservan por compatibilidad y utilizan esa misma unidad.
+
+`procedencia_oferta`, preparada por `services/procedencia_oferta_service.py`,
+identifica el origen gubernamental, el año de registro explícito cuando existe y
+la fecha de actualización de los datos del portal. Un año real permite filtrar la
+vigencia global más reciente antes de filtrar territorio y texto. No se extrae el
+año de una fecha de actualización. La fuente actual no publica año de registro:
+se informa esa ausencia y la fecha **14 de enero de 2025**, obtenida de
+`rowsUpdatedAt` en los metadatos Socrata, no de `viewLastModified`. Si falla la
+consulta de metadatos, se informa que la fecha no está disponible y se mantiene
+la consulta de ofertas. Ambas descargas utilizan TLS, tiempo límite y caché común.
+
+La advertencia de identificación
 no se elimina ni se convierte un título en un identificador de programa. El estado
 es el reportado por la fuente y no certifica aperturas de convocatoria o disponibilidad
 actual de matrículas. Una institución de educación superior no necesariamente es
 una universidad; se conserva el nombre y tipo de registro publicados.
+
+### Catálogo territorial para el buscador
+
+`GET /territorios` devuelve departamentos y sus municipios con código territorial,
+fuente y año. `services/catalogo_territorios_service.py` consulta la vigencia global
+más reciente de la fuente MEN `nudc-7mev`, agrupa los territorios y descarga las
+páginas necesarias. Verifica códigos, conteos, duplicados y conflictos: una fuente
+vacía, incompleta o incoherente genera 502, sin anunciar un catálogo completo.
+La consulta real verificada tiene 33 departamentos/distrito, 1122 municipios y
+vigencia 2024; estos valores pueden cambiar con la publicación gubernamental.
+La vigencia de este catálogo no se atribuye a las ofertas de educación superior.
+
+La web resuelve municipio/departamento antes de enviar la búsqueda estructurada.
+No confunde municipios homónimos ni reutiliza como nombre de programa un texto
+territorial. Elegir un municipio permite explorar los demás de su departamento.
 
 ### Colegios: última vigencia y directorio completo
 
@@ -197,7 +231,7 @@ Todas estas rutas aceptan JSON mediante **POST** y devuelven el contrato común:
 | --- | --- |
 | `/chat` | `pregunta`, `limit` opcional. |
 | `/colegios` | Departamento o municipio; `sector` y `modo_respuesta` opcionales. |
-| `/programas-superior` | Departamento, municipio o búsqueda por `texto`. |
+| `/programas-superior` | Departamento, municipio o búsqueda por `texto`; sin filtros, oferta nacional. |
 | `/bachilleres` | Departamento o municipio. |
 | `/icetex` | Departamento opcional (nacional por defecto); `tipo`, `anio` y `filtros` opcionales. |
 | `/transito-educativo` | Departamento o municipio. |

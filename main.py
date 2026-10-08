@@ -5,6 +5,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from models.schemas import PreguntaRequest, MunicipioRequest, TerritorioRequest, EducaDatosResponse
 from services.router_ciudadano import router as router_ciudadano
 from services.router_api import router as router_api
+from services.router_territorios import router as router_territorios
 from services.adaptador_api import adaptar_consulta_para_app, adaptar_servicio_para_app
 from services.establecimientos_service import consultar_establecimientos_educativos_service
 from fastapi.responses import JSONResponse
@@ -92,6 +93,7 @@ app.add_middleware(
 
 app.include_router(router_ciudadano)
 app.include_router(router_api)
+app.include_router(router_territorios)
 
 
 @app.exception_handler(RuntimeError)

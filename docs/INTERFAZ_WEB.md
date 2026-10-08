@@ -66,14 +66,12 @@ HTML crudo. Un conteo `null` se muestra como “No disponible”, nunca como cer
 Presenta el año de los datos cuando venga en la respuesta, sin asumir que es
 el año actual. Los años se presentan como `2025`, sin separador de miles.
 
-### Directorio de colegios
+### Diseño y directorio de colegios
 
-La distribución, tipografía, tarjetas e ilustración conservan el diseño inicial.
-La paleta usa grises cálidos: fondo `#f7f7f5`, texto `#303234`, botones grafito
-`#373b3f`, acento piedra `#73716c` y bordes `#dedfda`. La bandera conserva sus
-colores como símbolo de Colombia. Alternativas para explorar después sin cambiar
-el diseño: gris neutro (fondo `#f7f7f7`, botón `#333333`) o gris pizarra
-(fondo `#f4f5f6`, botón `#364149`). La versión implementada es la de grises cálidos.
+El diseño usa azul profundo `#183347`, verde azulado `#0b7474`, fondo claro
+`#f1f7f7` y detalles cálidos. Tarjetas, botones y encabezados ayudan a distinguir
+el resultado, la búsqueda y la exploración. Los estados activo e inactivo tienen
+etiquetas de texto además de color. La bandera conserva sus colores de Colombia.
 
 - `colegios en villavicencio` muestra directamente el directorio.
 - `¿Cuántos colegios hay en Villavicencio?` muestra el número y los botones
@@ -104,20 +102,52 @@ se pueden desplegar. Las sugerencias son botones que preparan una pregunta
 editable; no la envían automáticamente.
 
 `TablaDatos.tsx` presenta las colecciones preparadas por el backend: registros de
-bachilleres, instituciones y modalidades frecuentes, municipios
+bachilleres, municipios
 similares, recomendaciones, conectividad y demás registros que ya trae la
 respuesta. Solo cambia el contenido de un panel de 360 px, con cinco filas,
 búsqueda, salto de página y detalle individual. Una selección permite cambiar
 de colección sin apilar varias tablas. Se indica explícitamente cuándo son
 muestras o resúmenes; la paginación no transforma una muestra en una lista completa.
 
-Para educación superior se muestran título otorgado, institución, nivel y
-estado. `OfertaSuperior.tsx` presenta distribuciones por estado y nivel y un
-buscador de programa con ámbito territorial o nacional. La tabla permite filtrar
-Activo/Inactivo y nivel académico. No se ocultan ofertas inactivas ni se mezclan
-sus estados al quitar repeticiones. Cuando nombres de programa son inconsistentes,
-la pantalla explica brevemente que busca por los títulos reportados; el indicador
-de programas únicos no se presenta como un número ni como una tarjeta vacía.
+Para educación superior, `OfertaSuperior.tsx` muestra el total de ofertas,
+activas e inactivas. Sus botones permiten comparar niveles, modalidades y
+pregrado/posgrado: cada fila distingue total, activas e inactivas, con cinco filas
+por página. Un estado desconocido se informa aparte y sigue incluido en el total.
+Listado y resúmenes usan las mismas ofertas sin duplicados, en vez de mezclar
+filas descargadas con ofertas distintas.
+
+La procedencia identifica los Datos Abiertos del Gobierno de Colombia y el MEN.
+Si hay un año de registro explícito, presenta el más reciente; si falta, lo dice
+y muestra la actualización de los datos verificada en el portal. La fuente actual
+de educación superior no informa año de registro y su última actualización de
+datos es del **14 de enero de 2025**. Esa fecha no se presenta como el año de cada
+oferta ni como garantía de disponibilidad actual para matrícula.
+
+El buscador tiene campos editables de departamento y municipio. Elegir una ciudad
+identifica su departamento y habilita sus demás municipios; los nombres repetidos
+requieren escoger el territorio correcto. **Toda Colombia** elimina el filtro.
+Una entrada sin resolver o un fallo del catálogo impide enviar silenciosamente
+una búsqueda nacional. El catálogo se obtiene mediante `GET /territorios`, y la
+búsqueda envía departamento y municipio separados a `POST /programas-superior`.
+Dejar vacío el título permite explorar toda la oferta del territorio elegido.
+
+`ExploradorSuperior.tsx` sustituye la tabla genérica en estas consultas. Sus
+pestañas son **Programas y títulos**, **Instituciones**, **Modalidades**, **Niveles**
+y **Formación**. Incluye todas las instituciones encontradas, sin recortarlas a
+las diez más frecuentes. Cada ficha indica ofertas publicadas, activas e inactivas,
+y un botón **Ver oferta**. Al seleccionar una institución, las otras pestañas
+muestran exclusivamente sus modalidades, niveles y pregrado/posgrado; abrir un
+grupo conserva esa institución. Los filtros de la oferta permiten seleccionar
+estado, modalidad, nivel, institución y formación, incluidas especialización,
+maestría y doctorado. Los valores disponibles se ajustan a la institución elegida.
+
+Las fichas muestran título, institución, estado, nivel y modalidad, con **Ver
+detalle** como acción explícita. Cinco fichas ocupan un panel de altura fija
+(480 px en escritorio, 560 px en móvil), con paginación debajo y sin alargar el
+documento al cambiar de página. Las pestañas y el selector territorial permiten
+navegación por teclado; el detalle se abre en un diálogo accesible.
+Cuando la fuente no identifica los programas de forma consistente, la unidad
+visible es **ofertas publicadas**. No se presenta un total de programas únicos.
 
 Ejemplos: `Arquitectura`, `Ingeniería de Sistemas en Meta`,
 `Programa "Diseño Gráfico" en Medellín` o

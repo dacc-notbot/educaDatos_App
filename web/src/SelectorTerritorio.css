@@ -1,0 +1,23 @@
+.selector-territorio { border: 0; padding: 0; min-width: 0; width: 100%; margin: 0; }
+.selector-territorio legend { font-size: 1.06rem; font-weight: 700; color: var(--ink, #163f46); margin-bottom: 7px; }
+.territorio-instruccion, .territorio-ayuda { font-size: .88rem; line-height: 1.5; color: var(--muted, #566e75); margin: 0 0 12px; }
+.territorio-campos { display: grid; grid-template-columns: 1fr 1fr; gap: 14px; }
+.territorio-campo { position: relative; min-width: 0; }
+.territorio-campo label { display: block; margin-bottom: 6px; font-size: .86rem; font-weight: 600; }
+.territorio-campo input { width: 100%; min-width: 0; box-sizing: border-box; padding: 12px; background: #fff; color: #203b42; border: 1px solid #bed2d6; border-radius: 12px; font: inherit; }
+.territorio-campo input:focus { outline: 3px solid #81c9d866; border-color: #277080; }
+.territorio-campo input[aria-invalid="true"] { border-color: #976d28; }
+.territorio-campo input:disabled { background: #edf2f3; }
+.territorio-opciones { position: absolute; inset: calc(100% + 4px) 0 auto; z-index: 12; background: #fff; border: 1px solid #bed2d6; border-radius: 12px; padding: 5px; box-shadow: 0 8px 25px #163f4620; max-height: 210px; overflow-y: auto; }
+.territorio-opciones button { display: block; width: 100%; text-align: left; font: inherit; font-size: .87rem; padding: 10px; border: 0; border-radius: 7px; background: transparent; color: #203b42; white-space: normal; cursor: pointer; }
+.territorio-opciones button:hover, .territorio-opciones button[aria-selected="true"] { background: #e5f3f5; }
+.territorio-opciones p { margin: 8px; font-size: .85rem; }
+.territorio-ayuda { margin: 10px 0; min-height: 1.5em; }
+.territorio-pendiente { color: #795312; }
+.territorio-acciones { display: flex; flex-wrap: wrap; gap: 8px; }
+.territorio-acciones button, .territorio-error button { background: #e5f3f5; color: #195667; border: 1px solid #b7d8df; border-radius: 20px; padding: 7px 11px; font: inherit; font-size: .8rem; cursor: pointer; }
+.territorio-acciones button:hover, .territorio-error button:hover { background: #cfe9ee; }
+.territorio-acciones button:focus-visible, .territorio-error button:focus-visible { outline: 3px solid #4da8bc; outline-offset: 2px; }
+.territorio-error { margin: 0 0 12px; color: #795312; font-size: .9rem; }
+.territorio-error p { margin: 0 0 8px; }
+@media (max-width: 600px) { .territorio-campos { grid-template-columns: 1fr; gap: 12px; } .territorio-opciones { max-height: 170px; } }
