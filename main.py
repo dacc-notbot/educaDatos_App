@@ -306,10 +306,11 @@ def consulta_ciudadana_educativa(
     ),
 ):
     try:
-        return resolver_consulta_ciudadana(
+        resultado = resolver_consulta_ciudadana(
             pregunta=pregunta,
             limit=limit,
         )
+        return adaptar_respuesta_para_app(resultado)
 
     except ValueError as error:
         raise HTTPException(status_code=404, detail=str(error))

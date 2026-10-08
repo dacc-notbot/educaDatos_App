@@ -23,7 +23,7 @@ from services.establecimientos_service import consultar_establecimientos_educati
 from services.programas_service import consultar_programas_superior_service
 from services.bachilleres_service import consultar_bachilleres_service
 from services.icetex_service import consultar_icetex_service
-from services.estadisticas_icetex import extraer_filtros_icetex, dimension_solicitada
+from services.estadisticas_icetex import extraer_filtros_icetex, dimension_solicitada, crear_plazo_icetex
 from services.diagnostico_service import diagnostico_territorial_educativo_service
 from services.orientacion_service import orientar, requiere_orientacion
 from services.codigo_dane_service import consultar_codigo_dane_service, extraer_busqueda_dane
@@ -857,6 +857,9 @@ def resolver_consulta_ciudadana(
     4. Enruta a servicios especializados.
     5. Devuelve una respuesta trazable, ciudadana y fiel a los datos.
     """
+    # ICETEX conserva el mismo presupuesto tras detectar el territorio; la
+    # comparación tampoco concede otros 120 segundos al segundo reporte.
+    plazo_consulta_icetex = crear_plazo_icetex()
     if requiere_orientacion(pregunta):
         return orientar(pregunta)
     if "codigo dane" in normalizar_texto(pregunta):
@@ -1536,7 +1539,7 @@ def resolver_consulta_ciudadana(
             year = re.search(r"\b(?:19|20)\d{2}\b", pregunta)
             partes = [consultar_icetex_service(departamento=departamento, municipio=municipio,
                       tipo=tipo, limit=limit_analitico, anio=int(year.group()) if year else None,
-                      filtros=extraer_filtros_icetex(pregunta)) for tipo in ("otorgados", "renovados")]
+                      filtros=extraer_filtros_icetex(pregunta), _plazo=plazo_consulta_icetex) for tipo in ("otorgados", "renovados")]
             for parte in partes:
                 parte["datos"]["visualizacion_icetex"]["dimension_preferida"] = dimension_solicitada(pregunta, parte["datos"]["tipo_credito"])
             corto = " ".join(p["respuesta_corta"] for p in partes) + " Las dos medidas se presentan por separado y no se suman."
@@ -1560,6 +1563,7 @@ def resolver_consulta_ciudadana(
             municipio=municipio,
             tipo=tipo_icetex,
             limit=limit_analitico,
+            _plazo=plazo_consulta_icetex,
             **({"filtros": extraer_filtros_icetex(pregunta)} if extraer_filtros_icetex(pregunta) else {}),
             **({"anio": int(re.search(r"\b(?:19|20)\d{2}\b", pregunta).group())} if re.search(r"\b(?:19|20)\d{2}\b", pregunta) else {}),
         )

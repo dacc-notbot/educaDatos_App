@@ -62,7 +62,8 @@ def consultar_programas_superior(payload: ConsultaProgramasRequest):
             departamento=payload.departamento,
             municipio=payload.municipio,
             texto=payload.texto,
-            limit=payload.limit or 100000
+            limit=payload.limit or 100000,
+            estado=payload.estado,
         )
     except ValueError as error:
         raise HTTPException(status_code=422, detail=str(error)) from error
@@ -91,7 +92,9 @@ def consultar_icetex(payload: ConsultaIcetexRequest):
             departamento=payload.departamento,
             municipio=payload.municipio,
             tipo=payload.tipo,
-            limit=payload.limit or 100000
+            limit=payload.limit or 100000,
+            anio=payload.anio,
+            filtros=payload.filtros,
         )
     except ValueError as error:
         raise HTTPException(status_code=422, detail=str(error)) from error

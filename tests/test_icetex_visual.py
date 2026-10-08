@@ -8,7 +8,7 @@ from services import consulta_service, estadisticas_icetex as servicio
 
 
 def fuente(monkeypatch, total=25):
-    def descargar(dataset, limit, params_extra):
+    def descargar(dataset, limit, params_extra, timeout=None):
         assert limit == 5000
         assert 'sum(' in params_extra['$select']
         if params_extra['$group'] == 'vigencia':
@@ -81,7 +81,7 @@ def test_cantidades_invalidas_o_incompletas_no_se_publican(monkeypatch,cantidad,
 
 
 def test_distribuciones_que_no_suman_total_se_rechazan(monkeypatch):
-    def descargar(dataset,limit,params_extra):
+    def descargar(dataset,limit,params_extra,timeout=None):
         return ([{'vigencia':'2025','cantidad':'20','registros':'2','informados':'2'}]
                 if params_extra['$group']=='vigencia' else [{'categoria':'A','cantidad':'19'}])
     monkeypatch.setattr(servicio,'consultar_dataset',descargar)

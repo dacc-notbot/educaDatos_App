@@ -33,7 +33,7 @@ Estos pasos ejecutan el backend en tu propio equipo. No requieren Cloud Run.
    ```
 
    Si tienes cambios propios, conserva una copia antes de actualizar. Con el
-   checkout sin cambios pendientes, trae la versión publicada:
+   checkout sin cambios pendientes, trae la versión actual del repositorio:
 
    ```bash
    git pull --ff-only origin main
@@ -248,6 +248,10 @@ pedir un límite pequeño no garantiza que la descarga sea pequeña. Para colegi
 Se mantienen las rutas GET anteriores y `/ciudadano/*` para compatibilidad.
 `/ciudadano/*` conserva sus respuestas técnicas; las rutas de la tabla usan el
 formato común de la web.
+`GET /consulta` devuelve el mismo contrato ciudadano que `POST /chat`.
+Las rutas de compatibilidad `/ciudadano/programas-superior` e `/ciudadano/icetex`
+también transmiten los filtros publicados en sus modelos: estado de la oferta,
+y año/características del reporte ICETEX, respectivamente.
 
 ## Qué recibe la web
 
@@ -308,8 +312,17 @@ una cobertura no disponible devuelve `null`.
 Cada agregado comprueba cantidades enteras no negativas y que todos los registros
 del año tengan cantidad informada. Todas las distribuciones deben sumar el mismo
 total. Una discrepancia, un agregado truncado o una cantidad inválida produce
-error de fuente (502), sin publicar un total parcial. Máximo cuatro solicitudes
-concurrentes por análisis, utilizando la caché y TLS existentes. No se descarga
+error de fuente (502), sin publicar un total parcial. Un grupo de cuatro hilos
+compartidos por proceso limita las descargas ICETEX, utilizando la caché y TLS
+existentes. La serie anual y las distribuciones tienen un plazo conjunto de
+120 segundos, incluidas las esperas por la caché y por un hilo disponible.
+La comparación de otorgados y renovados comparte ese mismo plazo entre ambos
+reportes; el segundo utiliza el tiempo restante del primero.
+Un error de fuente se devuelve sin esperar las demás distribuciones; al vencer
+el plazo, la API devuelve 502 con un mensaje para reintentar. Cancela las tareas
+pendientes y conserva el orden de las distribuciones completas. Las descargas
+HTTP ya iniciadas no se interrumpen: mantienen su tiempo de espera de red y no
+generan nuevos grupos de hilos después del error. No se descarga
 el historial fila por fila; `limit` permanece como entrada compatible y no limita
 las sumas oficiales.
 

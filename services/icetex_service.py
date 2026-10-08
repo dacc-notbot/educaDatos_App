@@ -300,7 +300,9 @@ def consultar_icetex_service(
     limit: int = DEFAULT_ANALYTIC_LIMIT,
     anio: Optional[int] = None,
     filtros: Optional[Dict[str, str]] = None,
+    *,
+    _plazo: Optional[float] = None,
 ) -> Dict[str, Any]:
     # Las sumas se calculan sobre toda la fuente, sin limitar filas individuales.
     from services.estadisticas_icetex import consultar_estadisticas_icetex
-    return consultar_estadisticas_icetex(departamento, municipio, tipo, anio, filtros)
+    return consultar_estadisticas_icetex(departamento, municipio, tipo, anio, filtros, _plazo=_plazo)
