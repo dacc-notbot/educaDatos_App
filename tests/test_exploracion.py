@@ -23,6 +23,13 @@ from services.adaptador_api import adaptar_servicio_para_app
         "Explícame cómo funciona ICETEX",
         "Escribe un ensayo sobre la educación",
         "¿Son mejores los colegios privados?",
+        "¿Cómo se relacionan bachilleres, educación superior e ICETEX en Meta?",
+        "¿Cómo se relaciona la matrícula con ICETEX?",
+        "¿Qué relación hay entre colegios e ICETEX en Meta?",
+        "¿Cuál es la relación entre bachilleres y educación superior?",
+        "¿Qué recomendaciones educativas tiene Villavicencio?",
+        "Interpreta los datos de bachilleres en Meta",
+        "¿Cuál es el impacto de ICETEX en la deserción?",
         "Escribe una receta de cocina",
     ],
 )
@@ -50,6 +57,9 @@ def test_orientacion_no_descarga_fuentes_ni_inventa_datos(monkeypatch, pregunta)
         'Colegios llamados "Socialismo" en Villavicencio',
         "¿Qué municipio tiene mejor cobertura educativa?",
         "Colegios en Villavicencio",
+        "Oferta de educación superior en Meta",
+        "ICETEX otorgados y renovados en Meta",
+        'Colegios llamados "Relación entre amigos" en Villavicencio',
     ],
 )
 def test_informacion_de_fuentes_no_se_confunde_con_opiniones(pregunta):

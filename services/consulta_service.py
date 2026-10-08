@@ -888,13 +888,12 @@ def resolver_consulta_ciudadana(
             "respuesta_ciudadana": {
                 "respuesta_corta": (
                     "Hola, soy EducaDatos. Puedo ayudarte a consultar datos abiertos "
-                    "sobre colegios, bachilleres, educación superior, ICETEX, diagnóstico "
-                    "territorial y grupos de municipios con comportamiento educativo similar."
+                    "sobre colegios, bachilleres, educación superior, ICETEX e indicadores educativos."
                 ),
                 "hallazgos_principales": [
                     "Puedes preguntarme por un municipio o departamento.",
-                    "Puedo relacionar bachilleres, oferta de educación superior e ICETEX.",
-                    "También puedo generar diagnósticos educativos exploratorios y buscar municipios similares.",
+                    "Puedes consultar cantidades, listados, estados, modalidades y años reportados.",
+                    "Presento la información publicada por las fuentes oficiales, sin interpretar relaciones entre los datos.",
                 ],
                 "fuente_usada": {},
                 "resultados_muestra": [],
@@ -903,8 +902,8 @@ def resolver_consulta_ciudadana(
                 ],
                 "sugerencias_de_siguiente_pregunta": [
                     "¿Qué colegios hay en Soacha?",
-                    "Haz un diagnóstico educativo de Villavicencio",
-                    "¿Qué relación hay entre bachilleres, educación superior e ICETEX en Cundinamarca?",
+                    "Oferta de educación superior en Villavicencio",
+                    "ICETEX otorgados en Cundinamarca",
                 ],
             },
             "resultados": [],
@@ -943,9 +942,9 @@ def resolver_consulta_ciudadana(
                     "un municipio o departamento."
                 ),
                 sugerencias=[
-                    "Haz un diagnóstico educativo de Soacha",
-                    "Haz un diagnóstico educativo de Villavicencio",
-                    "Dame un panorama educativo de Cundinamarca",
+                    "Indicadores educativos en Soacha",
+                    "Indicadores educativos en Villavicencio",
+                    "Colegios en Cundinamarca",
                 ],
             )
 
@@ -1008,8 +1007,8 @@ def resolver_consulta_ciudadana(
                     "un departamento o municipio."
                 ),
                 sugerencias=[
-                    "¿Cómo se relacionan bachilleres, educación superior e ICETEX en Meta?",
-                    "¿Qué oportunidades tienen los bachilleres de Soacha para acceder a educación superior?",
+                    "Oferta de educación superior en Meta",
+                    "Oferta de educación superior en Soacha",
                     "¿Qué créditos ICETEX aparecen en Cundinamarca?",
                 ],
             )
@@ -1102,9 +1101,9 @@ def resolver_consulta_ciudadana(
                     "resultados_muestra": resultados,
                     "limitaciones": resultado_analitico.get("advertencias", []),
                     "sugerencias_de_siguiente_pregunta": [
-                        "¿Qué grupo describe mejor a Villavicencio?",
-                        "¿Qué recomendaciones educativas tiene Villavicencio?",
-                        f"¿Qué relación hay entre bachilleres, educación superior e ICETEX en {departamento}?",
+                        "Indicadores educativos en Villavicencio",
+                        "Colegios en Villavicencio",
+                        f"ICETEX otorgados en {departamento}",
                     ],
                 },
                 "resultados": resultado_analitico,
@@ -1125,9 +1124,9 @@ def resolver_consulta_ciudadana(
                     "necesito que indiques un municipio."
                 ),
                 sugerencias=[
-                    "¿Qué municipios se parecen a Villavicencio?",
-                    "¿En qué grupo educativo está Soacha?",
-                    "¿Qué recomendaciones educativas tiene Villavicencio?",
+                    "Matrícula educativa en Villavicencio",
+                    "Indicadores educativos en Soacha",
+                    "Colegios en Villavicencio",
                 ],
             )
 
@@ -1163,8 +1162,8 @@ def resolver_consulta_ciudadana(
                         "Para comparar municipios se requiere municipio y departamento.",
                     ],
                     "sugerencias_de_siguiente_pregunta": [
-                        f"¿Qué municipios se parecen a {municipio}?",
-                        f"¿Qué recomendaciones educativas tiene {municipio}?",
+                        f"Indicadores educativos en {municipio}",
+                        f"Colegios en {municipio}",
                     ],
                 },
                 "resultados": [],
@@ -1211,9 +1210,9 @@ def resolver_consulta_ciudadana(
                     "resultados_muestra": similares,
                     "limitaciones": resultado_analitico.get("advertencias", []),
                     "sugerencias_de_siguiente_pregunta": [
-                        f"¿Qué recomendaciones educativas tiene {municipio}?",
-                        f"¿En qué grupo educativo está {municipio}?",
-                        "¿Qué variables se usaron para calcular la similitud?",
+                        f"Colegios en {municipio}",
+                        f"Matrícula educativa en {municipio}",
+                        f"Oferta de educación superior en {municipio}",
                     ],
                 },
                 "resultados": resultado_analitico,
@@ -1261,8 +1260,8 @@ def resolver_consulta_ciudadana(
                     "resultados_muestra": resultado_analitico.get("recomendaciones_generales", []),
                     "limitaciones": resultado_analitico.get("advertencias", []),
                     "sugerencias_de_siguiente_pregunta": [
-                        f"¿Qué municipios se parecen a {municipio}?",
-                        "¿Cómo se puede cruzar este resultado con colegios, bachilleres o educación superior?",
+                        f"Indicadores educativos en {municipio}",
+                        f"¿Cuántos bachilleres se reportan en {municipio}?",
                     ],
                 },
                 "resultados": resultado_analitico,
@@ -1332,9 +1331,9 @@ def resolver_consulta_ciudadana(
                     ],
                     "limitaciones": resultado_analitico.get("advertencias_o_limitaciones", []),
                     "sugerencias_de_siguiente_pregunta": [
-                        f"¿Qué municipios se parecen a {municipio}?",
-                        f"¿Qué recomendaciones educativas tiene {municipio}?",
-                        "¿Qué significan las variables altas y bajas de este grupo?",
+                        f"Indicadores educativos en {municipio}",
+                        f"Colegios en {municipio}",
+                        f"Oferta de educación superior en {municipio}",
                     ],
                 },
                 "resultados": resultado_analitico,
@@ -1490,7 +1489,7 @@ def resolver_consulta_ciudadana(
                 sugerencias=[
                     "¿Cuántos bachilleres hay en Meta?",
                     "¿Cuántos bachilleres se graduaron en Villavicencio?",
-                    "¿Cómo se relacionan bachilleres, educación superior e ICETEX en Meta?",
+                    "Oferta de educación superior en Meta",
                 ],
             )
 

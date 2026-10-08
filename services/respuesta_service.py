@@ -488,7 +488,7 @@ def construir_sugerencias(intencion: str) -> List[str]:
         return [
             "¿Cuáles de estos establecimientos son oficiales o privados?",
             "¿Qué sedes aparecen en el municipio consultado?",
-            "¿Puedo cruzar estos colegios con indicadores de cobertura o permanencia?"
+            "¿Cuál es el código DANE de un colegio?"
         ]
 
     if intencion in [
@@ -500,34 +500,39 @@ def construir_sugerencias(intencion: str) -> List[str]:
         return [
             "¿Qué instituciones ofrecen esos programas?",
             "¿Qué programas hay por modalidad o área de conocimiento?",
-            "¿Cómo se relaciona esta oferta con los bachilleres del territorio?"
+            "¿Qué ofertas están activas o inactivas?"
         ]
 
     if intencion in ["buscar_instituciones_etdh", "buscar_programas_etdh", "instituciones_etdh", "programas_etdh"]:
         return [
             "¿Qué programas técnicos laborales hay en este municipio?",
             "¿Qué instituciones ETDH aparecen registradas?",
-            "¿Cómo se relaciona esta oferta con empleo o tránsito desde la educación media?"
+            "¿Qué programas ETDH aparecen registrados en el departamento?"
         ]
 
     if intencion == "buscar_zonas_wifi":
         return [
-            "¿Qué zonas wifi quedan cerca de instituciones educativas?",
-            "¿Cómo se puede cruzar conectividad con cobertura educativa?",
+            "¿Qué zonas wifi están reportadas en el municipio?",
+            "¿Qué municipios tienen zonas wifi registradas?",
             "¿Qué municipios tienen menos registros de conectividad?"
         ]
 
+    if intencion in ["consultar_bachilleres", "bachilleres"]:
+        return [
+            "¿Cuántos bachilleres se reportan en Meta?",
+            "¿Qué ofertas de educación superior se reportan en Meta?",
+            "ICETEX otorgados en Meta"
+        ]
+
     if intencion in [
-        "consultar_bachilleres",
         "consultar_creditos_icetex_otorgados",
         "consultar_creditos_icetex_renovados",
-        "bachilleres",
         "icetex"
     ]:
         return [
-            "¿Cómo se relacionan bachilleres, oferta educativa superior y créditos ICETEX?",
-            "¿Qué tendencia se observa por año o territorio?",
-            "¿Qué brechas pueden identificarse en el acceso a educación superior?"
+            "ICETEX otorgados en Meta",
+            "ICETEX renovados en Meta",
+            "ICETEX por año en Meta"
         ]
 
     if intencion in [
@@ -537,9 +542,9 @@ def construir_sugerencias(intencion: str) -> List[str]:
         "generar_recomendaciones_municipio"
     ]:
         return [
-            "¿Qué municipios tienen comportamiento educativo similar?",
-            "¿Qué recomendaciones educativas se pueden generar para este municipio?",
-            "¿Cómo se relaciona este grupo estadístico con bachilleres, educación superior e ICETEX?"
+            "Indicadores educativos en Villavicencio",
+            "Matrícula educativa en Villavicencio",
+            "¿Cuántos colegios se reportan en Villavicencio?"
         ]
 
     if intencion in [
@@ -550,15 +555,15 @@ def construir_sugerencias(intencion: str) -> List[str]:
         "transito_educativo"
     ]:
         return [
-            "¿Qué recomendaciones educativas surgen para este territorio?",
-            "¿Qué municipios tienen condiciones educativas similares?",
-            "¿Cómo se relacionan bachilleres, educación superior e ICETEX?"
+            "¿Cuántos bachilleres se reportan en Meta?",
+            "Oferta de educación superior en Meta",
+            "ICETEX otorgados en Meta"
         ]
 
     return [
-        "¿Quieres filtrar por municipio o departamento?",
-        "¿Quieres ver las columnas disponibles del dataset?",
-        "¿Quieres cruzar esta información con otro dataset educativo?"
+        "Colegios en Villavicencio",
+        "Oferta de educación superior en Meta",
+        "ICETEX otorgados en Meta"
     ]
 
 

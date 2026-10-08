@@ -34,6 +34,23 @@ def requiere_orientacion(pregunta: str) -> bool:
         "socialismo",
         "comunismo",
         "neoliberalismo",
+        "como se relaciona",
+        "como se relacionan",
+        "que relacion hay",
+        "que relacion existe",
+        "relacion entre",
+        "correlacion",
+        "como influye",
+        "como influyen",
+        "impacto de",
+        "interpreta",
+        "interpretar",
+        "interpretacion",
+        "conclusiones",
+        "recomienda",
+        "recomendaciones",
+        "recomendacion",
+        "aconseja",
     )
     if any(re.search(r"\b" + re.escape(frase) + r"\b", p) for frase in opinion):
         return True
@@ -61,8 +78,9 @@ def orientar(pregunta: str, texto: str | None = None):
             or (
                 "EducaDatos presenta información de las fuentes oficiales: colegios, códigos DANE, "
                 "educación superior, bachilleres, ICETEX e indicadores educativos. "
-                "Las API no permiten responder con opiniones, argumentos ideológicos o explicaciones "
-                "de por qué ocurre un fenómeno. Puedes reformular tu búsqueda indicando qué dato "
+                "Presentamos lo reportado por esas fuentes, sin interpretar relaciones entre los datos, "
+                "emitir recomendaciones, opiniones o explicar por qué ocurre un fenómeno. "
+                "Puedes reformular tu búsqueda indicando qué dato "
                 "quieres conocer y el municipio o departamento."
             ),
             "resultados_muestra": [],

@@ -575,6 +575,6 @@ def analizar_transito_educativo_service(
             f"¿Qué programas de educación superior aparecen en {territorio}?",
             f"¿Qué créditos ICETEX otorgados aparecen en {territorio}?",
             f"¿Qué créditos ICETEX renovados aparecen en {territorio}?",
-            f"¿Qué recomendaciones educativas surgen para mejorar el tránsito hacia educación superior en {territorio}?"
+            f"¿Cuántos bachilleres se reportan en {territorio}?"
         ]
     }

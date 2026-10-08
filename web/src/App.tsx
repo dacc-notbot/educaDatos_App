@@ -236,9 +236,9 @@ export default function App() {
     const timer = window.setTimeout(() => controller.abort(), 180000);
     try {
       const respuesta = parametros ? await consultarProgramas(parametros, controller.signal, texto.trim()) : await consultar(texto.trim(), controller.signal);
-      if (activo.current) setResultado(respuesta);
+      if (activo.current && solicitud.current === controller) setResultado(respuesta);
     } catch (e) {
-      if (activo.current) {
+      if (activo.current && solicitud.current === controller) {
         setError(
           e instanceof Error ? e.message : "No pudimos completar la consulta.",
         );
@@ -249,8 +249,10 @@ export default function App() {
       }
     } finally {
       window.clearTimeout(timer);
-      if (activo.current) setPendiente(false);
-      solicitud.current = null;
+      if (solicitud.current === controller) {
+        if (activo.current) setPendiente(false);
+        solicitud.current = null;
+      }
     }
   }
 
@@ -258,6 +260,21 @@ export default function App() {
     setPregunta(texto);
     setError("");
     campo.current?.focus();
+  }
+
+  function volverAlInicio() {
+    solicitud.current?.abort();
+    solicitud.current = null;
+    setPendiente(false);
+    setResultado(null);
+    setPregunta("");
+    setError("");
+    // Conserva la espera de sobrecarga indicada por el servicio.
+    setAhora(Date.now());
+    window.requestAnimationFrame(() => {
+      campo.current?.focus({ preventScroll: true });
+      document.getElementById("consulta")?.scrollIntoView?.({ behavior: "smooth", block: "start" });
+    });
   }
   return (
     <>
@@ -333,7 +350,14 @@ export default function App() {
               <span className="eyebrow">EMPECEMOS</span>
               <h2 id="consulta-titulo">¿Qué quieres saber?</h2>
             </div>
-            <span className="paso">01 / Pregunta y explora</span>
+            <div className="acciones-consulta">
+              <span className="paso">01 / Pregunta y explora</span>
+              {(pregunta || resultado || error || pendiente) && (
+                <button type="button" className="boton-inicio" onClick={volverAlInicio}>
+                  Volver al inicio
+                </button>
+              )}
+            </div>
           </div>
           <form onSubmit={enviar}>
             <label htmlFor="pregunta">

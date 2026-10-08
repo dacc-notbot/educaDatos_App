@@ -1,6 +1,7 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
 import {
   cleanup,
+  act,
   fireEvent,
   render,
   screen,
@@ -119,6 +120,70 @@ function preguntar(texto = "Colegios en Soacha") {
   );
   fireEvent.click(screen.getByRole("button", { name: "Consultar" }));
 }
+
+it("vuelve al inicio, limpia los resultados y permite escribir otra pregunta sin consultar", async () => {
+  const fetchMock = vi.fn().mockResolvedValue(respuestaColegios());
+  vi.stubGlobal("fetch", fetchMock);
+  render(<App />);
+  preguntar("Colegios en Villavicencio");
+  await screen.findByRole("list", { name: "Listado de colegios" });
+  fireEvent.click(screen.getByRole("button", { name: "Siguiente" }));
+  expect(screen.getByText("Colegio 06")).toBeTruthy();
+  fireEvent.click(screen.getByRole("button", { name: "Volver al inicio" }));
+  expect(screen.queryByRole("list", { name: "Listado de colegios" })).toBeNull();
+  expect(screen.queryByText("Esto encontramos")).toBeNull();
+  const campo = screen.getByLabelText("Escribe tu pregunta sobre educación en Colombia") as HTMLTextAreaElement;
+  expect(campo.value).toBe("");
+  await waitFor(() => expect(document.activeElement).toBe(campo));
+  expect((screen.getByRole("button", { name: "Consultar" }) as HTMLButtonElement).disabled).toBe(true);
+  fireEvent.change(campo, { target: { value: "ICETEX en Meta" } });
+  expect((screen.getByRole("button", { name: "Consultar" }) as HTMLButtonElement).disabled).toBe(false);
+  expect(fetchMock).toHaveBeenCalledTimes(1);
+});
+
+it.each(["respuesta", "error"])("ignora una %s tardía de la consulta cancelada sin interrumpir la nueva", async (tipo) => {
+  let resolverAnterior!: (respuesta: Response) => void;
+  let rechazarAnterior!: (error: Error) => void;
+  let resolverNueva!: (respuesta: Response) => void;
+  const fetchMock = vi.fn()
+    .mockImplementationOnce(() => new Promise<Response>((resolve, reject) => {
+      resolverAnterior = resolve;
+      rechazarAnterior = reject;
+    }))
+    .mockImplementationOnce(() => new Promise<Response>((resolve) => { resolverNueva = resolve; }));
+  vi.stubGlobal("fetch", fetchMock);
+  render(<App />);
+  preguntar("Colegios en Villavicencio");
+  const señalAnterior = fetchMock.mock.calls[0][1].signal as AbortSignal;
+  fireEvent.click(screen.getByRole("button", { name: "Volver al inicio" }));
+  expect(señalAnterior.aborted).toBe(true);
+  preguntar("ICETEX en Meta");
+  await act(async () => {
+    if (tipo === "respuesta") resolverAnterior(new Response(JSON.stringify({ respuesta: "Resultado anterior" }), { status: 200 }));
+    else rechazarAnterior(new TypeError("Failed to fetch"));
+  });
+  expect(screen.queryByText("Resultado anterior")).toBeNull();
+  expect(screen.queryByRole("alert")).toBeNull();
+  expect((screen.getByRole("button", { name: "Consultando…" }) as HTMLButtonElement).disabled).toBe(true);
+  expect((fetchMock.mock.calls[1][1].signal as AbortSignal).aborted).toBe(false);
+  await act(async () => { resolverNueva(new Response(JSON.stringify({ respuesta: "Resultado de ICETEX" }), { status: 200 })); });
+  expect(screen.getByText("Resultado de ICETEX")).toBeTruthy();
+  expect((screen.getByRole("textbox") as HTMLTextAreaElement).value).toBe("ICETEX en Meta");
+  expect(fetchMock).toHaveBeenCalledTimes(2);
+});
+
+it("limpia un error conservando la espera por sobrecarga antes de consultar otra vez", async () => {
+  const fetchMock = vi.fn().mockResolvedValue(new Response("{}", { status: 503, headers: { "Retry-After": "10" } }));
+  vi.stubGlobal("fetch", fetchMock);
+  render(<App />);
+  preguntar();
+  await screen.findByRole("alert");
+  fireEvent.click(screen.getByRole("button", { name: "Volver al inicio" }));
+  expect(screen.queryByRole("alert")).toBeNull();
+  fireEvent.change(screen.getByRole("textbox"), { target: { value: "ICETEX en Meta" } });
+  expect((screen.getByRole("button", { name: /Espera/ }) as HTMLButtonElement).disabled).toBe(true);
+  expect(fetchMock).toHaveBeenCalledTimes(1);
+});
 
 describe("Consulta ciudadana", () => {
   it("permite elegir una pregunta y editarla antes de enviar, sin registro", () => {

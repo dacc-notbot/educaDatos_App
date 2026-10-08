@@ -101,6 +101,18 @@ Las limitaciones se conservan en «Sobre esta información» y los hallazgos út
 se pueden desplegar. Las sugerencias son botones que preparan una pregunta
 editable; no la envían automáticamente.
 
+Las sugerencias se limitan a cantidades, listados, estados, modalidades, niveles
+y años publicados por las fuentes. No proponen interpretar relaciones entre
+bachilleres, educación superior e ICETEX ni generar recomendaciones. Las preguntas
+de ese tipo reciben orientación hacia una consulta informativa, sin descargar
+fuentes para inventar relaciones o conclusiones.
+
+El botón **Volver al inicio** limpia la pregunta, los resultados y los errores,
+cancela la solicitud del navegador si sigue en curso y devuelve el foco al campo
+de consulta. Una respuesta que llegue después de limpiar no vuelve a aparecer
+ni interfiere con una nueva consulta. Se conserva una espera por sobrecarga si
+el servicio ya la había indicado.
+
 `TablaDatos.tsx` presenta las colecciones preparadas por el backend: registros de
 bachilleres, municipios
 similares, recomendaciones, conectividad y demás registros que ya trae la

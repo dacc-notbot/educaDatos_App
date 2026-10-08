@@ -349,21 +349,21 @@ def construir_sugerencias_establecimientos(
         return [
             f"Muéstrame la lista de colegios oficiales de {territorio_pregunta}",
             f"Muéstrame la lista de colegios no oficiales o privados de {territorio_pregunta}",
-            f"¿Cómo se relacionan estos colegios con matrícula o permanencia en {territorio_pregunta}?",
+            f"Muéstrame todos los colegios de {territorio_pregunta}",
         ]
 
     if sector_normalizado == "OFICIAL":
         return [
             f"¿Cuántos colegios oficiales y privados hay en {territorio_pregunta}?",
             f"Muéstrame la lista de colegios no oficiales o privados de {territorio_pregunta}",
-            f"Haz un diagnóstico educativo de {territorio_pregunta}",
+            f"Muéstrame todos los colegios de {territorio_pregunta}",
         ]
 
     if sector_normalizado == "NO_OFICIAL":
         return [
             f"¿Cuántos colegios oficiales y privados hay en {territorio_pregunta}?",
             f"Muéstrame la lista de colegios oficiales de {territorio_pregunta}",
-            f"Haz un diagnóstico educativo de {territorio_pregunta}",
+            f"Muéstrame todos los colegios de {territorio_pregunta}",
         ]
 
     return [

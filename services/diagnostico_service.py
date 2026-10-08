@@ -541,10 +541,10 @@ def construir_resumen_diagnostico(
     ]
 
     sugerencias = [
-        f"¿Qué recomendaciones educativas específicas tiene {territorio}?",
-        f"¿Qué municipios se parecen a {territorio}?",
-        f"¿Qué programas de educación superior aparecen en {territorio}?",
-        f"¿Cómo se relacionan bachilleres, educación superior e ICETEX en {territorio}?"
+        f"Colegios en {territorio}",
+        f"¿Cuántos bachilleres se reportan en {territorio}?",
+        f"Oferta de educación superior en {territorio}",
+        f"ICETEX otorgados en {territorio}"
     ]
 
     return {

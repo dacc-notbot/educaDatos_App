@@ -356,8 +356,8 @@ def consultar_bachilleres_service(
             ],
             "sugerencias_de_siguiente_pregunta": [
                 f"¿Cuántos bachilleres hay en {territorio}?",
-                f"¿Cómo se relacionan bachilleres, educación superior e ICETEX en {territorio}?",
-                f"¿Qué oportunidades de educación superior hay para los bachilleres de {territorio}?"
+                f"Oferta de educación superior en {territorio}",
+                f"ICETEX otorgados en {territorio}"
             ]
         }
 
@@ -548,8 +548,8 @@ def consultar_bachilleres_service(
             "Para consultas departamentales se evita usar búsqueda textual inicial cuando puede sesgar la muestra; por eso se descargan más registros y se filtra localmente."
         ],
         "sugerencias_de_siguiente_pregunta": [
-            f"¿Cómo se relacionan bachilleres, educación superior e ICETEX en {territorio}?",
-            f"¿Qué programas de educación superior hay para los bachilleres de {territorio}?",
-            f"¿Qué créditos ICETEX aparecen asociados a {territorio}?"
+            f"Oferta de educación superior en {territorio}",
+            f"ICETEX otorgados en {territorio}",
+            f"ICETEX renovados en {territorio}"
         ]
     }
