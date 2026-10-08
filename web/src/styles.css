@@ -479,6 +479,7 @@ h3 {
 }
 footer {
   display: flex;
+  flex-wrap: wrap;
   align-items: center;
   gap: 22px;
   border-top: 1px solid var(--borde);
@@ -501,6 +502,26 @@ footer a {
 footer svg {
   width: 12px;
   height: 12px;
+}
+.footer-creditos {
+  flex-basis: 100%;
+  min-width: 0;
+  font-size: 11px;
+  line-height: 1.8;
+}
+.footer-creditos p {
+  margin: 0;
+}
+.footer-creditos p + p {
+  margin-top: 8px;
+}
+.footer-creditos a {
+  display: inline;
+  width: auto;
+  margin: 0;
+  color: var(--acento);
+  text-decoration: underline;
+  text-underline-offset: 3px;
 }
 .resultado {
   padding: 30px 32px;

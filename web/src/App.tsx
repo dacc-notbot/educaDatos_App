@@ -476,6 +476,25 @@ export default function App() {
         >
           Portal de datos abiertos <Icono nombre="enlace" />
         </a>
+        <div className="footer-creditos">
+          <p>
+            © Elaborado por:{" "}
+            <a
+              href="https://scienti.minciencias.gov.co/cvlac/visualizador/generarCurriculoCv.do?cod_rh=0000031500"
+              target="_blank"
+              rel="noopener noreferrer"
+            >
+              Daniel Alejandro Contreras Castro
+            </a>
+            . Con asistencia de IA, bajo código abierto.
+          </p>
+          <p>
+            Versión libre y de código abierto. Usa datos abiertos del Gobierno de
+            Colombia. El contenido de esas fuentes y su actualización son
+            responsabilidad de las entidades gubernamentales, no del diseñador
+            de esta página.
+          </p>
+        </div>
       </footer>
     </>
   );
